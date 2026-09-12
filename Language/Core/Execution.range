@@ -1,13 +1,3 @@
-construct Semantic {
-    binding source: @syntax
-    binding value: @syntax?
-    binding transformation: Transformation?
-    binding result: @syntax?
-
-    @many
-    state next: Semantic
-}
-
 construct Execution {
     binding effect: @syntax?
 

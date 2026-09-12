@@ -7,4 +7,4 @@ macro fakeExtern(): Function -> FakeExternRegistration {
 }
 
 @fakeExtern
-function rangeFakeExtern(value: Int): Int
+function rangeFakeExtern(let value: Int): Int

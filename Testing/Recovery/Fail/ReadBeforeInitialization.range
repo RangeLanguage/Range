@@ -1,0 +1,1 @@
+function start(): Int { let value: Int return value }

@@ -1,5 +1,5 @@
 compilerTypedSyntaxCFGSnapshot
 
-function interpolationFlow(input: Int): String {
+function interpolationFlow(let input: Int): String {
     return "value=\(input + 1)"
 }

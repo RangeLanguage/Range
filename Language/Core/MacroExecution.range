@@ -1,7 +1,7 @@
 // Target-neutral freestanding macro execution.
 function compilerBFunctionHasExternRelationship(
-    revision: CompilerBSyntaxRevision,
-    functionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let functionSyntaxID: Int
 ): Bool {
     state row: Int(0)
     while row < revision.macroApplications.syntaxIDs.count {
@@ -31,10 +31,10 @@ function compilerBFunctionHasExternRelationship(
 }
 
 function compilerBMacroBoundString(
-    revision: CompilerBSyntaxRevision,
-    macroApplicationSyntaxID: Int,
-    macroDeclarationSyntaxID: Int,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let macroApplicationSyntaxID: Int,
+    let macroDeclarationSyntaxID: Int,
+    let expressionSyntaxID: Int
 ): String {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(value: expressionSyntaxID))
     if expressionRow < 0 { return "" }
@@ -94,10 +94,10 @@ function compilerBMacroBoundString(
 }
 
 function compilerBMacroExecutionConditionAllows(
-    revision: CompilerBSyntaxRevision,
-    applicationRow: Int,
-    macroDeclarationSyntaxID: Int,
-    ownerSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationRow: Int,
+    let macroDeclarationSyntaxID: Int,
+    let ownerSyntaxID: Int
 ): Bool {
     if ownerSyntaxID == macroDeclarationSyntaxID { return true }
     let switchCaseRow: Int(revision.process.switchCases.syntaxIDs.firstIndex(value: ownerSyntaxID))
@@ -152,10 +152,10 @@ function compilerBMacroExecutionConditionAllows(
 }
 
 function compilerBExecuteFreestandingMacroApplication(
-    revision: CompilerBSyntaxRevision,
-    applicationRow: Int,
-    depth: Int,
-    liftedValue: String
+    let revision: SyntaxRevision,
+    let applicationRow: Int,
+    let depth: Int,
+    let liftedValue: String
 ): Int {
     if depth > 32 { return 0 - 1 }
     let applicationSyntaxID: Int(
@@ -349,7 +349,7 @@ function compilerBExecuteFreestandingMacroApplication(
     return 0
 }
 
-function compilerBRunFreestandingMacros(revision: CompilerBSyntaxRevision): Int {
+function compilerBRunFreestandingMacros(let revision: SyntaxRevision): Int {
     state row: Int(0)
     while row < revision.macroApplications.syntaxIDs.count {
         if revision.macroApplications.targetSyntaxIDs.element(index: row) >= 0 {

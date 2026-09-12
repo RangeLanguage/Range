@@ -16,7 +16,7 @@ construct Model {
         self.fixed
     }
 
-    function transform(value: Int): Int {
+    function transform(let value: Int): Int {
         return value
     }
 }

@@ -1,8 +1,8 @@
 compilerMacroSnapshot
 compilerSourceFile\trole=core\tpath=Core/Storage.range
 macro storage(): Construct -> Void {}
-macro literal(_ syntax: Foreign<ASCII>): Construct -> Void {}
+macro literal(let syntax: Foreign<ASCII>): Construct -> Void {}
 compilerSourceFile\trole=core\tpath=Core/Float.range
 @storage
-@literal(.numeric.decimal(separator: "."))
+@literal(syntax: .numeric.decimal(separator: "."))
 construct Float<bits: Int> {}

@@ -1,4 +1,4 @@
 @extern
-function rangeExternBody(value: Int): Int {
+function rangeExternBody(let value: Int): Int {
     return value
 }

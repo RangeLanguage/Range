@@ -1,8 +1,8 @@
-function float32Identity(value: Float<32>): Float<32> {
+function float32Identity(let value: Float<32>): Float<32> {
     return value
 }
 
-function float64Identity(value: Float<64>): Float<64> {
+function float64Identity(let value: Float<64>): Float<64> {
     return value
 }
 

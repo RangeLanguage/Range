@@ -1,6 +1,6 @@
 @app
 construct Website {
     derived body: @view {
-        Text("Home")
+        Text(value: "Home")
     }
 }

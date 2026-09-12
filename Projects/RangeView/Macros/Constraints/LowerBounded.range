@@ -1,4 +1,4 @@
-macro lowerBounded(minimum: Value): @member -> Value {
+macro lowerBounded(let minimum: Value): @member -> Value {
   let value: #environment.target.Application.value
 
   if value < minimum {

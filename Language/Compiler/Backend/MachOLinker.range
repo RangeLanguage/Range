@@ -1,0 +1,545 @@
+function machONameListContains(let names: String, let name: String): Bool {
+    state start: Int(0)
+    state cursor: Int(0)
+    while cursor <= names.count {
+        if cursor == names.count || names.byte(index: cursor) == 10 {
+            if names.substring(start: start, end: cursor) == name {
+                return true
+            }
+            start: cursor + 1
+        }
+        cursor: cursor + 1
+    }
+    return false
+}
+
+function machOObjectsDefineSymbol(
+    let objects: @many RelocatableObject,
+    let name: String
+): Bool {
+    state objectIndex: Int(0)
+    while objectIndex < objects.count {
+        let object: RelocatableObject(objects.element(index: objectIndex))
+        state symbolIndex: Int(0)
+        while symbolIndex < object.symbols.count {
+            let symbol: ObjectSymbol(object.symbols.element(index: symbolIndex))
+            if symbol.kind != .undefined && symbol.name == name { return true }
+            symbolIndex: symbolIndex + 1
+        }
+        objectIndex: objectIndex + 1
+    }
+    return false
+}
+
+function machOValidateLinkInputs(
+    let objects: @many RelocatableObject,
+    let options: LinkOptions
+): String {
+    state objectIndex: Int(0)
+    while objectIndex < objects.count {
+        let object: RelocatableObject(objects.element(index: objectIndex))
+        if !object.valid { return object.diagnostic }
+        state symbolIndex: Int(0)
+        while symbolIndex < object.symbols.count {
+            let symbol: ObjectSymbol(object.symbols.element(index: symbolIndex))
+            if symbol.kind == .global {
+                state otherObjectIndex: Int(objectIndex + 1)
+                while otherObjectIndex < objects.count {
+                    let other: RelocatableObject(objects.element(index: otherObjectIndex))
+                    state otherSymbolIndex: Int(0)
+                    while otherSymbolIndex < other.symbols.count {
+                        let otherSymbol: ObjectSymbol(other.symbols.element(
+                            index: otherSymbolIndex
+                        ))
+                        if otherSymbol.kind == .global
+                            && otherSymbol.name == symbol.name {
+                            return "Mach-O duplicate symbol: \(symbol.name)"
+                        }
+                        otherSymbolIndex: otherSymbolIndex + 1
+                    }
+                    otherObjectIndex: otherObjectIndex + 1
+                }
+            }
+            if symbol.kind == .undefined
+                && !machOObjectsDefineSymbol(objects: objects, name: symbol.name)
+                && !machONameListContains(
+                    names: options.allowedSystemImports,
+                    name: symbol.name
+                ) {
+                return "Mach-O unresolved symbol: \(symbol.name)"
+            }
+            symbolIndex: symbolIndex + 1
+        }
+        state relocationIndex: Int(0)
+        while relocationIndex < object.relocations.count {
+            let relocation: ObjectRelocation(object.relocations.element(
+                index: relocationIndex
+            ))
+            if relocation.sectionIndex < 0
+                || relocation.sectionIndex >= object.sections.count
+                || relocation.symbolIndex < 0
+                || relocation.symbolIndex >= object.symbols.count
+                || relocation.offset < 0
+                || relocation.offset + relocation.width
+                    > object.sections.element(
+                        index: relocation.sectionIndex
+                    ).bytes.bytes.count {
+                return "Mach-O relocation is outside its section"
+            }
+            relocationIndex: relocationIndex + 1
+        }
+        objectIndex: objectIndex + 1
+    }
+    return ""
+}
+
+function machOAligned(let value: Int, let alignment: Int): Int {
+    let remainder: Int(value % alignment)
+    if remainder == 0 { return value }
+    return value + alignment - remainder
+}
+
+function machOAppendSegmentCommand(
+    let output: Binary,
+    let name: String,
+    let vmAddress: Unsigned64,
+    let vmSize: Unsigned64,
+    let fileOffset: Unsigned64,
+    let fileSize: Unsigned64,
+    let maximumProtection: Int,
+    let initialProtection: Int,
+    let sectionCount: Int,
+    let commandSize: Int
+): Int {
+    if binaryAppendUInt32LE(output: output, value: 25) != 0
+        || binaryAppendUInt32LE(output: output, value: commandSize) != 0
+        || machOAppendFixedName(output: output, name: name, width: 16) != 0
+        || binaryAppendUInt64LE(output: output, value: vmAddress) != 0
+        || binaryAppendUInt64LE(output: output, value: vmSize) != 0
+        || binaryAppendUInt64LE(output: output, value: fileOffset) != 0
+        || binaryAppendUInt64LE(output: output, value: fileSize) != 0
+        || binaryAppendUInt32LE(output: output, value: maximumProtection) != 0
+        || binaryAppendUInt32LE(output: output, value: initialProtection) != 0
+        || binaryAppendUInt32LE(output: output, value: sectionCount) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function machOAppendExecutableSection(
+    let output: Binary,
+    let sectionName: String,
+    let segmentName: String,
+    let address: Unsigned64,
+    let size: Unsigned64,
+    let fileOffset: Int,
+    let alignmentExponent: Int,
+    let flags: Int
+): Int {
+    if machOAppendFixedName(output: output, name: sectionName, width: 16) != 0
+        || machOAppendFixedName(output: output, name: segmentName, width: 16) != 0
+        || binaryAppendUInt64LE(output: output, value: address) != 0
+        || binaryAppendUInt64LE(output: output, value: size) != 0
+        || binaryAppendUInt32LE(output: output, value: fileOffset) != 0
+        || binaryAppendUInt32LE(output: output, value: alignmentExponent) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(output: output, value: flags) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function machOCodeSignatureSize(let codeLimit: Int, let identifier: String): Int {
+    let slots: Int((codeLimit + 4095) / 4096)
+    return 20 + 88 + identifier.count + 1 + slots * 32
+}
+
+function machOCodeSignature(
+    let image: Binary,
+    let codeLimit: Int,
+    let identifier: String,
+    let textLimit: Int
+): Binary {
+    let slots: Int((codeLimit + 4095) / 4096)
+    let hashOffset: Int(88 + identifier.count + 1)
+    let directorySize: Int(hashOffset + slots * 32)
+    let signatureSize: Int(20 + directorySize)
+    let output: Binary(binary(capacity: signatureSize))
+    binaryAppendUInt32BE(output: output, value: unsigned32(high: 64222, low: 3264))
+    binaryAppendUInt32BE(output: output, value: signatureSize)
+    binaryAppendUInt32BE(output: output, value: 1)
+    binaryAppendUInt32BE(output: output, value: 0)
+    binaryAppendUInt32BE(output: output, value: 20)
+    binaryAppendUInt32BE(output: output, value: unsigned32(high: 64222, low: 3074))
+    binaryAppendUInt32BE(output: output, value: directorySize)
+    binaryAppendUInt32BE(output: output, value: 132096)
+    binaryAppendUInt32BE(output: output, value: 131074)
+    binaryAppendUInt32BE(output: output, value: hashOffset)
+    binaryAppendUInt32BE(output: output, value: 88)
+    binaryAppendUInt32BE(output: output, value: 0)
+    binaryAppendUInt32BE(output: output, value: slots)
+    binaryAppendUInt32BE(output: output, value: codeLimit)
+    binaryAppendUInt8(output: output, value: 32)
+    binaryAppendUInt8(output: output, value: 2)
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendUInt8(output: output, value: 12)
+    binaryAppendUInt32BE(output: output, value: 0)
+    binaryAppendUInt32BE(output: output, value: 0)
+    binaryAppendUInt32BE(output: output, value: 0)
+    binaryAppendUInt32BE(output: output, value: 0)
+    binaryAppendUInt64BE(output: output, value: unsigned64FromInt(value: codeLimit))
+    binaryAppendUInt64BE(output: output, value: unsigned64FromInt(value: 0))
+    binaryAppendUInt64BE(output: output, value: unsigned64FromInt(value: textLimit))
+    binaryAppendUInt64BE(output: output, value: unsigned64FromInt(value: 1))
+    binaryAppendString(output: output, value: identifier)
+    binaryAppendUInt8(output: output, value: 0)
+    state slot: Int(0)
+    while slot < slots {
+        let start: Int(slot * 4096)
+        state end: Int(start + 4096)
+        if end > codeLimit { end: codeLimit }
+        let page: Binary(binarySlice(value: image, start: start, end: end))
+        let digest: String(binarySHA256(value: binaryAsString(value: page)))
+        binaryAppendString(output: output, value: digest)
+        binaryDestroy(value: page)
+        slot: slot + 1
+    }
+    return output
+}
+
+function machOObjectHasUndefinedSymbols(let object: RelocatableObject): Bool {
+    state index: Int(0)
+    while index < object.symbols.count {
+        if object.symbols.element(index: index).kind == .undefined { return true }
+        index: index + 1
+    }
+    return false
+}
+
+function linkMachOSelfContainedExecutable(
+    let object: RelocatableObject,
+    let options: LinkOptions
+): BinaryArtifact {
+    if object.sections.count != 1
+        || object.sections.element(index: 0).kind != .text
+        || object.relocations.count != 0
+        || machOObjectHasUndefinedSymbols(object: object) {
+        return binaryArtifactFailure(
+            message: "Mach-O self-contained image shape is invalid"
+        )
+    }
+    let entryIndex: Int(objectSymbolIndex(
+        object: object,
+        name: object.entrySymbol
+    ))
+    if entryIndex < 0 {
+        return binaryArtifactFailure(message: "Mach-O entry symbol is missing")
+    }
+    let text: Binary(object.sections.element(index: 0).bytes)
+    let commandSize: Int(456)
+    let textOffset: Int(machOAligned(value: 32 + commandSize, alignment: 16))
+    let textEnd: Int(textOffset + text.bytes.count)
+    let signatureOffset: Int(machOAligned(value: textEnd, alignment: 16384))
+    let signatureSize: Int(machOCodeSignatureSize(
+        codeLimit: signatureOffset,
+        identifier: options.identifier
+    ))
+    let linkEditSize: Int(signatureSize)
+    let output: Binary(binary(capacity: signatureOffset + signatureSize))
+    binaryAppendUInt32LE(output: output, value: unsigned32(high: 65261, low: 64207))
+    binaryAppendUInt32LE(output: output, value: 16777228)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: 2)
+    binaryAppendUInt32LE(output: output, value: 8)
+    binaryAppendUInt32LE(output: output, value: commandSize)
+    binaryAppendUInt32LE(output: output, value: 2097285)
+    binaryAppendUInt32LE(output: output, value: 0)
+    machOAppendSegmentCommand(
+        output: output,
+        name: "__PAGEZERO",
+        vmAddress: unsigned64FromInt(value: 0),
+        vmSize: Unsigned64(low: 0, high: 1),
+        fileOffset: unsigned64FromInt(value: 0),
+        fileSize: unsigned64FromInt(value: 0),
+        maximumProtection: 0,
+        initialProtection: 0,
+        sectionCount: 0,
+        commandSize: 72
+    )
+    machOAppendSegmentCommand(
+        output: output,
+        name: "__TEXT",
+        vmAddress: Unsigned64(low: 0, high: 1),
+        vmSize: unsigned64FromInt(value: signatureOffset),
+        fileOffset: unsigned64FromInt(value: 0),
+        fileSize: unsigned64FromInt(value: signatureOffset),
+        maximumProtection: 5,
+        initialProtection: 5,
+        sectionCount: 1,
+        commandSize: 152
+    )
+    machOAppendExecutableSection(
+        output: output,
+        sectionName: "__text",
+        segmentName: "__TEXT",
+        address: Unsigned64(low: textOffset, high: 1),
+        size: unsigned64FromInt(value: text.bytes.count),
+        fileOffset: textOffset,
+        alignmentExponent: 2,
+        flags: unsigned32(high: 32768, low: 1024)
+    )
+    machOAppendSegmentCommand(
+        output: output,
+        name: "__LINKEDIT",
+        vmAddress: Unsigned64(low: signatureOffset, high: 1),
+        vmSize: unsigned64FromInt(value: machOAligned(value: linkEditSize, alignment: 16384)),
+        fileOffset: unsigned64FromInt(value: signatureOffset),
+        fileSize: unsigned64FromInt(value: linkEditSize),
+        maximumProtection: 1,
+        initialProtection: 1,
+        sectionCount: 0,
+        commandSize: 72
+    )
+    binaryAppendUInt32LE(output: output, value: 14)
+    binaryAppendUInt32LE(output: output, value: 32)
+    binaryAppendUInt32LE(output: output, value: 12)
+    binaryAppendString(output: output, value: "/usr/lib/dyld")
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendZeroes(output: output, count: 6)
+    binaryAppendUInt32LE(output: output, value: 50)
+    binaryAppendUInt32LE(output: output, value: 32)
+    binaryAppendUInt32LE(output: output, value: 1)
+    binaryAppendUInt32LE(output: output, value: options.target.minimumMajorVersion * 65536 + options.target.minimumMinorVersion * 256)
+    binaryAppendUInt32LE(output: output, value: options.target.minimumMajorVersion * 65536 + options.target.minimumMinorVersion * 256)
+    binaryAppendUInt32LE(output: output, value: 1)
+    binaryAppendUInt32LE(output: output, value: 3)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: unsigned32(high: 32768, low: 40))
+    binaryAppendUInt32LE(output: output, value: 24)
+    binaryAppendUInt64LE(
+        output: output,
+        value: unsigned64Adding(
+            left: unsigned64FromInt(value: textOffset),
+            right: object.symbols.element(index: entryIndex).offset
+        )
+    )
+    binaryAppendUInt64LE(output: output, value: unsigned64FromInt(value: 0))
+    binaryAppendUInt32LE(output: output, value: 12)
+    binaryAppendUInt32LE(output: output, value: 56)
+    binaryAppendUInt32LE(output: output, value: 24)
+    binaryAppendUInt32LE(output: output, value: 2)
+    binaryAppendUInt32LE(output: output, value: 85131520)
+    binaryAppendUInt32LE(output: output, value: 65536)
+    binaryAppendString(output: output, value: "/usr/lib/libSystem.B.dylib")
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendZeroes(output: output, count: 4)
+    binaryAppendUInt32LE(output: output, value: 29)
+    binaryAppendUInt32LE(output: output, value: 16)
+    binaryAppendUInt32LE(output: output, value: signatureOffset)
+    binaryAppendUInt32LE(output: output, value: signatureSize)
+    while output.bytes.count < textOffset { binaryAppendUInt8(output: output, value: 0) }
+    binaryAppendBinary(output: output, value: text)
+    while output.bytes.count < signatureOffset { binaryAppendUInt8(output: output, value: 0) }
+    let signature: Binary(machOCodeSignature(
+        image: output,
+        codeLimit: signatureOffset,
+        identifier: options.identifier,
+        textLimit: signatureOffset
+    ))
+    binaryAppendBinary(output: output, value: signature)
+    binaryDestroy(value: signature)
+    return BinaryArtifact(bytes: output, valid: true, diagnostic: "")
+}
+
+function linkMachOCompleteExecutable(
+    let object: RelocatableObject,
+    let options: LinkOptions
+): BinaryArtifact {
+    let imports: MachOImports(machOPrepareImports(object: object))
+    if !imports.valid { return binaryArtifactFailure(message: imports.diagnostic) }
+    let layout: MachOImageLayout(machOLayoutImageSections(object: object))
+    if machOEncodeImportStubs(
+        object: object,
+        imports: imports,
+        layout: layout
+    ) != 0 || machOApplyArm64Relocations(
+        object: object,
+        imports: imports,
+        layout: layout
+    ) != 0 {
+        return binaryArtifactFailure(message: "ARM64 relocation failed")
+    }
+    let entryIndex: Int(objectSymbolIndex(object: object, name: object.entrySymbol))
+    let entryAddress: Unsigned64(machOImageSymbolAddress(
+        object: object,
+        layout: layout,
+        symbolID: entryIndex
+    ))
+    if !unsigned64IsValid(value: entryAddress) || entryAddress.high != 1 {
+        return binaryArtifactFailure(message: "Mach-O entry symbol is missing")
+    }
+    let fixups: Binary(machOChainedFixups(
+        object: object,
+        imports: imports,
+        layout: layout
+    ))
+    let exports: Binary(machOMainExportsTrie(entryOffset: entryAddress.low))
+    let fixupsOffset: Int(layout.linkEditFileOffset)
+    let exportsOffset: Int(fixupsOffset + fixups.bytes.count)
+    let signatureOffset: Int(machOAligned(
+        value: exportsOffset + exports.bytes.count,
+        alignment: 16
+    ))
+    let signatureSize: Int(machOCodeSignatureSize(
+        codeLimit: signatureOffset,
+        identifier: options.identifier
+    ))
+    let linkEditSize: Int(signatureOffset + signatureSize
+        - layout.linkEditFileOffset)
+    let output: Binary(binary(capacity: signatureOffset + signatureSize))
+    binaryAppendUInt32LE(output: output, value: unsigned32(high: 65261, low: 64207))
+    binaryAppendUInt32LE(output: output, value: 16777228)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: 2)
+    binaryAppendUInt32LE(output: output, value: 12)
+    binaryAppendUInt32LE(output: output, value: layout.commandSize)
+    binaryAppendUInt32LE(output: output, value: 2097285)
+    binaryAppendUInt32LE(output: output, value: 0)
+    machOAppendSegmentCommand(
+        output: output,
+        name: "__PAGEZERO",
+        vmAddress: unsigned64FromInt(value: 0),
+        vmSize: Unsigned64(low: 0, high: 1),
+        fileOffset: unsigned64FromInt(value: 0),
+        fileSize: unsigned64FromInt(value: 0),
+        maximumProtection: 0,
+        initialProtection: 0,
+        sectionCount: 0,
+        commandSize: 72
+    )
+    machOAppendImageSegment(
+        output: output,
+        object: object,
+        layout: layout,
+        segmentCode: 1,
+        name: "__TEXT",
+        address: Unsigned64(low: 0, high: 1),
+        vmSize: layout.textFileSize,
+        fileOffset: 0,
+        fileSize: layout.textFileSize,
+        protection: 5
+    )
+    machOAppendImageSegment(
+        output: output,
+        object: object,
+        layout: layout,
+        segmentCode: 2,
+        name: "__DATA_CONST",
+        address: Unsigned64(low: layout.dataConstFileOffset, high: 1),
+        vmSize: layout.dataConstFileSize,
+        fileOffset: layout.dataConstFileOffset,
+        fileSize: layout.dataConstFileSize,
+        protection: 3
+    )
+    machOAppendImageSegment(
+        output: output,
+        object: object,
+        layout: layout,
+        segmentCode: 3,
+        name: "__DATA",
+        address: Unsigned64(low: layout.dataFileOffset, high: 1),
+        vmSize: layout.dataVMSize,
+        fileOffset: layout.dataFileOffset,
+        fileSize: layout.dataFileSize,
+        protection: 3
+    )
+    machOAppendSegmentCommand(
+        output: output,
+        name: "__LINKEDIT",
+        vmAddress: layout.linkEditAddress,
+        vmSize: unsigned64FromInt(value: machOAligned(
+            value: linkEditSize,
+            alignment: 16384
+        )),
+        fileOffset: unsigned64FromInt(value: layout.linkEditFileOffset),
+        fileSize: unsigned64FromInt(value: linkEditSize),
+        maximumProtection: 1,
+        initialProtection: 1,
+        sectionCount: 0,
+        commandSize: 72
+    )
+    binaryAppendUInt32LE(output: output, value: 14)
+    binaryAppendUInt32LE(output: output, value: 32)
+    binaryAppendUInt32LE(output: output, value: 12)
+    binaryAppendString(output: output, value: "/usr/lib/dyld")
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendZeroes(output: output, count: 6)
+    binaryAppendUInt32LE(output: output, value: 50)
+    binaryAppendUInt32LE(output: output, value: 32)
+    binaryAppendUInt32LE(output: output, value: 1)
+    binaryAppendUInt32LE(output: output, value: options.target.minimumMajorVersion * 65536 + options.target.minimumMinorVersion * 256)
+    binaryAppendUInt32LE(output: output, value: options.target.minimumMajorVersion * 65536 + options.target.minimumMinorVersion * 256)
+    binaryAppendUInt32LE(output: output, value: 1)
+    binaryAppendUInt32LE(output: output, value: 3)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: unsigned32(high: 32768, low: 40))
+    binaryAppendUInt32LE(output: output, value: 24)
+    binaryAppendUInt64LE(output: output, value: unsigned64FromInt(value: entryAddress.low))
+    binaryAppendUInt64LE(output: output, value: unsigned64FromInt(value: 0))
+    binaryAppendUInt32LE(output: output, value: 12)
+    binaryAppendUInt32LE(output: output, value: 56)
+    binaryAppendUInt32LE(output: output, value: 24)
+    binaryAppendUInt32LE(output: output, value: 2)
+    binaryAppendUInt32LE(output: output, value: 85131520)
+    binaryAppendUInt32LE(output: output, value: 65536)
+    binaryAppendString(output: output, value: "/usr/lib/libSystem.B.dylib")
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendZeroes(output: output, count: 4)
+    binaryAppendUInt32LE(output: output, value: unsigned32(high: 32768, low: 52))
+    binaryAppendUInt32LE(output: output, value: 16)
+    binaryAppendUInt32LE(output: output, value: fixupsOffset)
+    binaryAppendUInt32LE(output: output, value: fixups.bytes.count)
+    binaryAppendUInt32LE(output: output, value: unsigned32(high: 32768, low: 51))
+    binaryAppendUInt32LE(output: output, value: 16)
+    binaryAppendUInt32LE(output: output, value: exportsOffset)
+    binaryAppendUInt32LE(output: output, value: exports.bytes.count)
+    binaryAppendUInt32LE(output: output, value: 29)
+    binaryAppendUInt32LE(output: output, value: 16)
+    binaryAppendUInt32LE(output: output, value: signatureOffset)
+    binaryAppendUInt32LE(output: output, value: signatureSize)
+    state sectionID: Int(0)
+    while sectionID < object.sections.count {
+        let section: ObjectSection(object.sections.element(index: sectionID))
+        if section.kind != .zeroFill {
+            while output.bytes.count < layout.sectionFileOffsets.element(
+                index: sectionID
+            ) { binaryAppendUInt8(output: output, value: 0) }
+            binaryAppendBinary(output: output, value: section.bytes)
+        }
+        sectionID: sectionID + 1
+    }
+    while output.bytes.count < fixupsOffset {
+        binaryAppendUInt8(output: output, value: 0)
+    }
+    binaryAppendBinary(output: output, value: fixups)
+    binaryAppendBinary(output: output, value: exports)
+    while output.bytes.count < signatureOffset {
+        binaryAppendUInt8(output: output, value: 0)
+    }
+    let signature: Binary(machOCodeSignature(
+        image: output,
+        codeLimit: signatureOffset,
+        identifier: options.identifier,
+        textLimit: layout.textFileSize
+    ))
+    binaryAppendBinary(output: output, value: signature)
+    binaryDestroy(value: signature)
+    binaryDestroy(value: fixups)
+    binaryDestroy(value: exports)
+    return BinaryArtifact(bytes: output, valid: true, diagnostic: "")
+}

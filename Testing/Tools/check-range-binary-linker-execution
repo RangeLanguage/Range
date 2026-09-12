@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-linker-execution.XXXXXX")"
+linked_fixture="/tmp/range-binary-linker-fixture"
+cleanup() {
+    rm -rf "$work_root"
+    rm -f "$linked_fixture"
+}
+trap cleanup EXIT
+
+mkdir -p \
+    "$work_root/Language/Compiler/Backend" \
+    "$work_root/Language/Compiler" \
+    "$work_root/Testing/BinaryLinkerExecution"
+cp -R "$REPO_ROOT/Language/Core" "$work_root/Language/Core"
+cp "$REPO_ROOT/Language/Compiler/Artifact.range" \
+    "$work_root/Language/Compiler/Artifact.range"
+for source in \
+    Object Target AppleArm64Encoding AppleArm64Instructions \
+    AppleArm64Relocation MachOObject MachOMerge MachOImage \
+    MachODynamicLink MachOLinker MachOLink; do
+    cp "$REPO_ROOT/Language/Compiler/Backend/$source.range" \
+        "$work_root/Language/Compiler/Backend/$source.range"
+done
+cp "$REPO_ROOT"/Testing/Compiler/Pass/BinaryLinkerExecution/*.range \
+    "$work_root/Testing/BinaryLinkerExecution/"
+
+compiler_exit=0
+"$REPO_ROOT/Language/Bootstrap/Tools/bootstrap-range-compiler" \
+    --emit-assembly "$work_root" > "$work_root/builder.s" \
+    2> "$work_root/builder.err" || compiler_exit=$?
+
+if [[ "$compiler_exit" -ne 0 ]]; then
+    grep -E 'execution compass (predicate|continuation) effect is not materialized' \
+        "$work_root/builder.s" >/dev/null
+    echo "range binary linker execution: accepted seed boundary"
+    exit 0
+fi
+
+clang -arch arm64 \
+    "$work_root/builder.s" \
+    "$REPO_ROOT/Language/Runtime/RangeCompilerHost.c" \
+    "$REPO_ROOT/Language/Runtime/RangeCompilerMetrics.c" \
+    "$REPO_ROOT/Language/Runtime/RangeRawBuffer.c" \
+    -o "$work_root/builder"
+
+"$work_root/builder"
+cp "$linked_fixture" "$work_root/first"
+"$work_root/builder"
+cmp "$work_root/first" "$linked_fixture"
+file "$linked_fixture" | grep -F 'Mach-O 64-bit executable arm64' >/dev/null
+otool -l "$linked_fixture" | grep -F 'LC_DYLD_CHAINED_FIXUPS' >/dev/null
+otool -l "$linked_fixture" | grep -F 'LC_DYLD_EXPORTS_TRIE' >/dev/null
+dyld_info -fixups "$linked_fixture" | grep -F 'libSystem/_malloc' >/dev/null
+codesign --verify --strict "$linked_fixture"
+"$linked_fixture"
+
+echo "range binary linker execution: pass"

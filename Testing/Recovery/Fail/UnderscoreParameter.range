@@ -1,0 +1,2 @@
+function identity(let _ value: Int): Int { return value }
+function start(): Int { return identity(42) }

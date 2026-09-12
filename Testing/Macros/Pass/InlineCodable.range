@@ -51,7 +51,7 @@ construct Encoder<Format> {
 }
 
 construct KeyedEncodingContainer<Format> {
-    function encode<Value>(_ value: Value, forKey key: String): Result<Void, EncodingError>
+    function encode<Value>(let value: Value, let key: String): Result<Void, EncodingError>
 }
 
 construct Decoder<Format> {
@@ -59,7 +59,7 @@ construct Decoder<Format> {
 }
 
 construct KeyedDecodingContainer<Format> {
-    function decode<Value>(_ type: Value, forKey key: String, default defaultValue: Value?): Result<Value, DecodingError>
+    function decode<Value>(let type: Value, let key: String, let defaultValue: Value?): Result<Value, DecodingError>
 }
 
 compilerSourceFile\trole=project\tpath=Project/User.range

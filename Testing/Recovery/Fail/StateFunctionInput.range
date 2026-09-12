@@ -1,0 +1,2 @@
+function identity(state value: Int): Int { return value }
+function start(): Int { return 42 }

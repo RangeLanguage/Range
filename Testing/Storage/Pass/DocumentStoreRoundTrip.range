@@ -55,11 +55,11 @@
 }
 
 function documentStoreFixtureMatches(
-    path: String,
-    id: Int,
-    found: Bool,
-    revision: Int,
-    body: String
+    let path: String,
+    let id: Int,
+    let found: Bool,
+    let revision: Int,
+    let body: String
 ): Bool {
     state snapshot: String(readFile(path: path))
     let document: StoredDocument(documentStoreGet(source: snapshot, id: id))

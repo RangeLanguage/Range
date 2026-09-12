@@ -47,7 +47,7 @@ construct Let {
     let macros: Array<Macro.Application>
 }
 
-macro metadata(_ key: String?, enabled: Bool(false)): Let -> Metadata {
+macro metadata(let key: String?, let enabled: Bool(false)): Let -> Metadata {
     return Metadata(key: key, enabled: enabled)
 }
 
@@ -91,6 +91,6 @@ construct Value {
     @metadata
     let disabled: Int
 
-    @metadata("custom", enabled: true)
+    @metadata(key: "custom", enabled: true)
     let enabled: Bool
 }

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+if [[ $# -ne 1 ]]; then
+    echo "usage: build-range-cli-bridge <output>" >&2
+    exit 64
+fi
+
+output="$1"
+output_directory="$(dirname "$output")"
+mkdir -p "$output_directory"
+temporary="$output_directory/.range-cli-bridge.$$"
+cleanup() { rm -f "$temporary"; }
+trap cleanup EXIT
+
+clang -arch arm64 -std=c17 -Wall -Wextra -Werror \
+    "$REPO_ROOT/Language/Bootstrap/GenerationZero/ProgramGraphBridge.c" \
+    "$REPO_ROOT/Language/Bootstrap/GenerationZero/RangeCLIBridge.c" \
+    -o "$temporary"
+chmod 755 "$temporary"
+mv -f "$temporary" "$output"

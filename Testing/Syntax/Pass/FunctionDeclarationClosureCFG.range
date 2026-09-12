@@ -1,6 +1,6 @@
 compilerTypedSyntaxCFGSnapshot
 
-function closureFlow(input: Int): Int {
+function closureFlow(let input: Int): Int {
     apply() { value in
         return value
     }

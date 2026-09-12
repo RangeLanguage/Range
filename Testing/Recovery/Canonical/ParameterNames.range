@@ -1,0 +1,83 @@
+// Exercise the actual Range parameter parser, with source text as input data.
+// These unused declarations also check that the recovery parser accepts binding
+// inputs while the execution rejection fixture guards the implementation boundary.
+function recoveryBindingInput(binding count: Int): Int { return count }
+macro recoveryBindingMacro(binding count: Int): Construct {}
+
+function recoveryParameterNamesStatus(let source: String, let suffixKind: String): Int {
+    let tokens: CompilerBRetainedTokenStore(compilerBLexRetained(source: source))
+    let parameters: CompilerBFunctionParameterFacetStore(
+        compilerBFunctionParameterFacetStoreCreate(capacity: 8)
+    )
+    let status: Int(compilerBParseFunctionParameterFacets(
+        source: source,
+        tokens: tokens,
+        parameters: parameters,
+        functionSyntaxID: 0,
+        openingTokenID: 0,
+        closingTokenID: tokens.kinds.count - 1
+    ))
+    state valid: Bool(status == 0)
+    if valid {
+        if parameters.identityTokenIDs.count != 2 || parameters.keywordTokenIDs.count != 2 { valid: false }
+        else {
+            let keyword: CompilerBToken(compilerBRetainedToken(
+                store: tokens,
+                id: TokenID(value: parameters.keywordTokenIDs.element(index: 1))
+            ))
+            if !compilerBTokenMatchesBytes(source: source, token: keyword, expected: suffixKind) {
+                valid: false
+            }
+            let first: CompilerBToken(compilerBRetainedToken(
+                store: tokens,
+                id: TokenID(value: parameters.identityTokenIDs.element(index: 0))
+            ))
+            let second: CompilerBToken(compilerBRetainedToken(
+                store: tokens,
+                id: TokenID(value: parameters.identityTokenIDs.element(index: 1))
+            ))
+            if !compilerBTokenMatchesBytes(source: source, token: first, expected: "revision") {
+                valid: false
+            }
+            if !compilerBTokenMatchesBytes(source: source, token: second, expected: "suffix") {
+                valid: false
+            }
+        }
+    }
+    compilerBFunctionParameterFacetStoreDestroy(store: parameters)
+    compilerBRetainedTokenStoreDestroy(store: tokens)
+    if status != 0 { return status }
+    if !valid { return 1 }
+    return 0
+}
+
+function recoveryParameterNames(): Int {
+    if recoveryParameterNamesStatus(source: "(let revision: FileRevision, let suffix: String)", suffixKind: "let") != 0 {
+        return 1
+    }
+    if recoveryParameterNamesStatus(source: "(let _ revision: FileRevision, let suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 2
+    }
+    if recoveryParameterNamesStatus(source: "(let revision: FileRevision, let all suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 3
+    }
+    if recoveryParameterNamesStatus(source: "(let _: FileRevision, let suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 4
+    }
+    if recoveryParameterNamesStatus(source: "(let revision: FileRevision: 3, let suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 5
+    }
+    if recoveryParameterNamesStatus(source: "(let revision: FileRevision, binding suffix: String)", suffixKind: "binding") != 0 {
+        return 6
+    }
+    if recoveryParameterNamesStatus(source: "(revision: FileRevision, let suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 7
+    }
+    if recoveryParameterNamesStatus(source: "(state revision: FileRevision, let suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 8
+    }
+    if recoveryParameterNamesStatus(source: "(derived revision: FileRevision, let suffix: String)", suffixKind: "let") != (0 - 1) {
+        return 9
+    }
+    return 42
+}

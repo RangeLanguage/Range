@@ -1,0 +1,247 @@
+function appleArm64PatchBranch26(
+    let bytes: Binary,
+    let offset: Int,
+    let site: Unsigned64,
+    let target: Unsigned64
+): Int {
+    let displacement: Int(unsigned64DifferenceInt(left: target, right: site))
+    if displacement % 4 != 0 { return 0 - 1 }
+    state immediate: Int(displacement / 4)
+    let limit: Int(67108864)
+    if immediate < 0 { immediate: immediate + limit }
+    if immediate < 0 || immediate >= limit { return 0 - 1 }
+    let word: Int(binaryUInt32LE(value: bytes, offset: offset))
+    if word < 0 { return 0 - 1 }
+    return binaryPatchUInt32LE(
+        output: bytes,
+        offset: offset,
+        value: word - word % limit + immediate
+    )
+}
+
+function appleArm64PatchPage21(
+    let bytes: Binary,
+    let offset: Int,
+    let site: Unsigned64,
+    let target: Unsigned64
+): Int {
+    let sitePage: Int(site.low / 4096)
+    let targetPage: Int(target.low / 4096)
+    state immediate: Int(targetPage - sitePage)
+    let limit: Int(2097152)
+    if immediate < 0 { immediate: immediate + limit }
+    if immediate < 0 || immediate >= limit { return 0 - 1 }
+    let word: Int(binaryUInt32LE(value: bytes, offset: offset))
+    let oldLow: Int((word / 536870912) % 4)
+    let oldHigh: Int((word / 32) % 524288)
+    return binaryPatchUInt32LE(
+        output: bytes,
+        offset: offset,
+        value: word - oldLow * 536870912 - oldHigh * 32
+            + (immediate % 4) * 536870912 + (immediate / 4) * 32
+    )
+}
+
+function appleArm64PageOffsetScale(let word: Int, let got: Bool): Int {
+    if got { return 8 }
+    let topByte: Int(word / 16777216)
+    if topByte % 64 == 57 {
+        return appleArm64PowerOfTwo(exponent: topByte / 64)
+    }
+    return 1
+}
+
+function appleArm64PatchPageOffset12(
+    let bytes: Binary,
+    let offset: Int,
+    let target: Unsigned64,
+    let got: Bool
+): Int {
+    let word: Int(binaryUInt32LE(value: bytes, offset: offset))
+    let scale: Int(appleArm64PageOffsetScale(word: word, got: got))
+    let pageOffset: Int(target.low % 4096)
+    if pageOffset % scale != 0 { return 0 - 1 }
+    let immediate: Int(pageOffset / scale)
+    let oldImmediate: Int((word / 1024) % 4096)
+    return binaryPatchUInt32LE(
+        output: bytes,
+        offset: offset,
+        value: word - oldImmediate * 1024 + immediate * 1024
+    )
+}
+
+function machOImportStubAddress(
+    let object: RelocatableObject,
+    let imports: MachOImports,
+    let layout: MachOImageLayout,
+    let symbolID: Int
+): Unsigned64 {
+    let importID: Int(machOImportIndex(imports: imports, symbolID: symbolID))
+    if importID < 0 { return Unsigned64(low: 0 - 1, high: 0 - 1) }
+    return unsigned64AddingInt(
+        value: layout.sectionAddresses.element(index: imports.stubSectionID),
+        addend: imports.stubOffsets.element(index: importID)
+    )
+}
+
+function machOImportGotAddress(
+    let imports: MachOImports,
+    let layout: MachOImageLayout,
+    let symbolID: Int
+): Unsigned64 {
+    let importID: Int(machOImportIndex(imports: imports, symbolID: symbolID))
+    if importID < 0 { return Unsigned64(low: 0 - 1, high: 0 - 1) }
+    return unsigned64AddingInt(
+        value: layout.sectionAddresses.element(index: imports.gotSectionID),
+        addend: imports.gotOffsets.element(index: importID)
+    )
+}
+
+function machOApplyArm64Relocations(
+    let object: RelocatableObject,
+    let imports: MachOImports,
+    let layout: MachOImageLayout
+): Int {
+    state relocationID: Int(0)
+    while relocationID < object.relocations.count {
+        let relocation: ObjectRelocation(object.relocations.element(
+            index: relocationID
+        ))
+        let section: ObjectSection(object.sections.element(
+            index: relocation.sectionIndex
+        ))
+        let site: Unsigned64(unsigned64AddingInt(
+            value: layout.sectionAddresses.element(index: relocation.sectionIndex),
+            addend: relocation.offset
+        ))
+        let symbol: ObjectSymbol(object.symbols.element(
+            index: relocation.symbolIndex
+        ))
+        state target: Unsigned64(machOImageSymbolAddress(
+            object: object,
+            layout: layout,
+            symbolID: relocation.symbolIndex
+        ))
+        if symbol.kind == .undefined {
+            if relocation.kind == .arm64Branch26 {
+                target: machOImportStubAddress(
+                    object: object,
+                    imports: imports,
+                    layout: layout,
+                    symbolID: relocation.symbolIndex
+                )
+            } else {
+                target: machOImportGotAddress(
+                    imports: imports,
+                    layout: layout,
+                    symbolID: relocation.symbolIndex
+                )
+            }
+        }
+        target: unsigned64AddingInt(value: target, addend: relocation.addend)
+        if !unsigned64IsValid(value: target) { return 0 - 1 }
+        if relocation.kind == .arm64Branch26 {
+            if appleArm64PatchBranch26(
+                bytes: section.bytes,
+                offset: relocation.offset,
+                site: site,
+                target: target
+            ) != 0 { return 0 - 1 }
+        } else if relocation.kind == .arm64Page21
+            || relocation.kind == .arm64GotLoadPage21 {
+            if appleArm64PatchPage21(
+                bytes: section.bytes,
+                offset: relocation.offset,
+                site: site,
+                target: target
+            ) != 0 { return 0 - 1 }
+        } else if relocation.kind == .arm64PageOffset12
+            || relocation.kind == .arm64GotLoadPageOffset12 {
+            if appleArm64PatchPageOffset12(
+                bytes: section.bytes,
+                offset: relocation.offset,
+                target: target,
+                got: relocation.kind == .arm64GotLoadPageOffset12
+            ) != 0 { return 0 - 1 }
+        } else if relocation.kind == .arm64Unsigned {
+            if relocationID > 0 && object.relocations.element(
+                index: relocationID - 1
+            ).kind == .arm64Subtractor {
+                let subtraction: ObjectRelocation(object.relocations.element(
+                    index: relocationID - 1
+                ))
+                let subtractAddress: Unsigned64(machOImageSymbolAddress(
+                    object: object,
+                    layout: layout,
+                    symbolID: subtraction.symbolIndex
+                ))
+                target: unsigned64AddingInt(
+                    value: unsigned64FromInt(value: unsigned64DifferenceInt(
+                        left: target,
+                        right: subtractAddress
+                    )),
+                    addend: subtraction.addend
+                )
+            }
+            if binaryPatchUInt64LE(
+                output: section.bytes,
+                offset: relocation.offset,
+                value: target
+            ) != 0 { return 0 - 1 }
+        } else if relocation.kind != .arm64Subtractor {
+            return 0 - 1
+        }
+        relocationID: relocationID + 1
+    }
+    return 0
+}
+
+function machOEncodeImportStubs(
+    let object: RelocatableObject,
+    let imports: MachOImports,
+    let layout: MachOImageLayout
+): Int {
+    if imports.symbolIDs.count == 0 { return 0 }
+    let stubs: Binary(object.sections.element(index: imports.stubSectionID).bytes)
+    state importID: Int(0)
+    while importID < imports.symbolIDs.count {
+        let offset: Int(imports.stubOffsets.element(index: importID))
+        let stubAddress: Unsigned64(unsigned64AddingInt(
+            value: layout.sectionAddresses.element(index: imports.stubSectionID),
+            addend: offset
+        ))
+        let gotAddress: Unsigned64(unsigned64AddingInt(
+            value: layout.sectionAddresses.element(index: imports.gotSectionID),
+            addend: imports.gotOffsets.element(index: importID)
+        ))
+        if binaryPatchUInt32LE(
+            output: stubs,
+            offset: offset,
+            value: unsigned32(high: 36864, low: 16)
+        ) != 0
+            || appleArm64PatchPage21(
+                bytes: stubs,
+                offset: offset,
+                site: stubAddress,
+                target: gotAddress
+            ) != 0
+            || binaryPatchUInt32LE(
+                output: stubs,
+                offset: offset + 4,
+                value: unsigned32(high: 63808, low: 528)
+            ) != 0
+            || appleArm64PatchPageOffset12(
+                bytes: stubs,
+                offset: offset + 4,
+                target: gotAddress,
+                got: true
+            ) != 0
+            || binaryPatchUInt32LE(
+                output: stubs,
+                offset: offset + 8,
+                value: unsigned32(high: 54815, low: 512)
+            ) != 0 { return 0 - 1 }
+        importID: importID + 1
+    }
+    return 0
+}

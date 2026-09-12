@@ -22,6 +22,7 @@ construct SyntaxNodeStore {
 }
 
 construct CompilerBDeclarationFacetStore {
+    let generics: CompilerBMemberFacetStore
     @many
     state syntaxIDs: Int
     @many
@@ -98,7 +99,7 @@ construct CompilerBFunctionParameterFacetStore {
     @many
     state functionSyntaxIDs: Int
     @many
-    state externalLabelTokenIDs: Int
+    state keywordTokenIDs: Int
     @many
     state identityTokenIDs: Int
     @many
@@ -426,6 +427,7 @@ construct CompilerBProcessGraph {
     let sourceOccurrences: CompilerBSourceOccurrenceFacetStore
     let applications: CompilerBApplicationFacetStore
     let arguments: CompilerBApplicationArgumentFacetStore
+    let genericArguments: CompilerBApplicationArgumentFacetStore
     let components: CompilerBApplicationComponentFacetStore
     let projections: CompilerBProjectionSegmentStore
     let locals: CompilerBLocalBindingFacetStore
@@ -466,6 +468,8 @@ construct CompilerBMacroSignatureFacetStore {
     @many
     state parameterMacroSyntaxIDs: Int
     @many
+    state parameterKeywordTokenIDs: Int
+    @many
     state parameterIdentityTokenIDs: Int
     @many
     state parameterTypeTokenIDs: Int
@@ -500,6 +504,9 @@ construct CompilerBMemberFacetStore {
     state afterLastInitializerTokenIDs: Int
     @many
     state initializerExpressionSyntaxIDs: Int
+    // Source RHS identity, retained even when it supplies only a requirement.
+    @many
+    state rhsSyntaxIDs: Int
     @many
     state bodySyntaxIDs: Int
     @many
@@ -526,7 +533,7 @@ enum CompilerBExpressionKind {
     case logical
 }
 
-construct CompilerBSyntaxRevision {
+construct SyntaxRevision {
     let source: String
     let tokens: CompilerBRetainedTokenStore
     let nodes: SyntaxNodeStore
@@ -548,11 +555,11 @@ construct CompilerBSyntaxRevision {
     let diagnosticStart: Int
 }
 
-enum CompilerBSyntaxRevisionOperation {
+enum SyntaxRevisionOperation {
     case difference
 }
 
-enum CompilerBSyntaxDeltaKind {
+enum SyntaxDeltaKind {
     case added
     case removed
     case changed
@@ -563,8 +570,8 @@ enum CompilerBGraphRevision {
     case current
 }
 
-construct CompilerBSyntaxDeltaSignal {
-    let change: CompilerBSyntaxDeltaKind
+construct SyntaxDeltaSignal {
+    let change: SyntaxDeltaKind
     let revision: CompilerBGraphRevision
     let identity: SyntaxNodeID
     let counterpart: SyntaxNodeID
@@ -641,7 +648,7 @@ construct CompilerBExpandedMacroRelationshipQueryResult {
 }
 
 
-construct CompilerBSyntaxDeltaStore {
+construct SyntaxDeltaStore {
     @many
     state kinds: Int
     @many
@@ -652,8 +659,8 @@ construct CompilerBSyntaxDeltaStore {
     state counterparts: Int
 }
 
-construct CompilerBSyntaxDelta {
-    let changes: CompilerBSyntaxDeltaStore
+construct SyntaxDelta {
+    let changes: SyntaxDeltaStore
     let addedCount: Int
     let removedCount: Int
     let changedCount: Int

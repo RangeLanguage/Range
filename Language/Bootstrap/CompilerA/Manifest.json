@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "sourceRevision": "30b77a430",
+  "executable": {
+    "path": "Language/Bootstrap/CompilerA/range",
+    "sha256": "683f072b3b5666be04054058e08b5f94bb0498721090eb41fa19497748233968",
+    "size": 3641312
+  },
+  "predecessor": {
+    "path": "Language/Bootstrap/CompilerA/Predecessor",
+    "sourceManifest": "Projects/RangeCompilerB/CompilerCoreSources.txt",
+    "fileCount": 69,
+    "sha256": "99e9528eb6d80ba5fac005cfbd40fad256d81a64d172135244d06cbabc741365",
+    "sha256Format": "SHA-256 of bytewise-sorted per-file shasum rows rooted at predecessor.path"
+  },
+  "driver": "Language/Bootstrap/Tools/build-compiler-a-successor",
+  "purpose": "Temporary bootstrap-only predecessor for reproducing the call-capable Generation Zero compiler",
+  "removalGate": "Remove after the native compiler reaches a byte-identical fixed point."
+}

@@ -1,5 +1,4 @@
 @integer
-construct Byte {
-    let bits: Int(8)
-    let signed: Bool(false)
+construct Byte<let bits: 8, let signed: false> {
+    let value: 0
 }

@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""Hoist post-branch local bindings in a temporary frozen-seed source tree.
+
+The accepted Generation Zero compiler cannot materialize a declaration after an
+`if` in the same lexical body.  This compatibility transform is deliberately
+textual and temporary: bootstrap-range-compiler applies it only to a copied
+project, never to canonical sources.
+"""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from pathlib import Path
+import re
+import shutil
+import sys
+
+
+@dataclass(frozen=True)
+class LineShape:
+    scope: tuple[int, ...]
+    first: str
+    paren_before: int
+    bracket_before: int
+    paren_after: int
+    bracket_after: int
+
+
+def masked_source(source: str) -> str:
+    """Mask comments and strings while preserving offsets and newlines."""
+    result = list(source)
+    index = 0
+    in_string = False
+    escaped = False
+    while index < len(source):
+        character = source[index]
+        if in_string:
+            if character == "\n":
+                pass
+            elif escaped:
+                escaped = False
+                result[index] = " "
+            elif character == "\\":
+                escaped = True
+                result[index] = " "
+            elif character == '"':
+                in_string = False
+                result[index] = " "
+            else:
+                result[index] = " "
+            index += 1
+            continue
+        if character == '"':
+            in_string = True
+            result[index] = " "
+            index += 1
+            continue
+        if character == "/" and index + 1 < len(source) and source[index + 1] == "/":
+            while index < len(source) and source[index] != "\n":
+                result[index] = " "
+                index += 1
+            continue
+        index += 1
+    return "".join(result)
+
+
+def line_shapes(source: str) -> list[LineShape]:
+    masked = masked_source(source)
+    lines = masked.splitlines(keepends=True)
+    scope_stack: list[int] = []
+    next_scope = 0
+    paren = 0
+    bracket = 0
+    shapes: list[LineShape] = []
+    for line in lines:
+        first = line.lstrip()
+        shapes.append(
+            LineShape(tuple(scope_stack), first, paren, bracket, paren, bracket)
+        )
+        for character in line:
+            if character == "(":
+                paren += 1
+            elif character == ")":
+                paren -= 1
+            elif character == "[":
+                bracket += 1
+            elif character == "]":
+                bracket -= 1
+            elif character == "{":
+                next_scope += 1
+                scope_stack.append(next_scope)
+            elif character == "}":
+                if not scope_stack:
+                    raise ValueError("unbalanced closing brace")
+                scope_stack.pop()
+        shapes[-1] = LineShape(
+            shapes[-1].scope,
+            shapes[-1].first,
+            shapes[-1].paren_before,
+            shapes[-1].bracket_before,
+            paren,
+            bracket,
+        )
+    if scope_stack or paren or bracket:
+        raise ValueError("unbalanced source delimiters")
+    return shapes
+
+
+def is_branch(first: str) -> bool:
+    return re.search(r"\b(?:if|while)\b", first) is not None
+
+
+def is_binding(first: str) -> bool:
+    return first.startswith("let ") or first.startswith("state ")
+
+
+def transform(source: str) -> tuple[str, int]:
+    lines = source.splitlines(keepends=True)
+    shapes = line_shapes(source)
+    first_branch: dict[tuple[int, ...], int] = {}
+    for index, shape in enumerate(shapes):
+        if shape.paren_before == 0 and shape.bracket_before == 0 and is_branch(shape.first):
+            first_branch.setdefault(shape.scope, index)
+
+    groups: list[tuple[int, int, int]] = []
+    index = 0
+    while index < len(lines):
+        shape = shapes[index]
+        branch_index = first_branch.get(shape.scope)
+        if (
+            branch_index is not None
+            and index > branch_index
+            and shape.paren_before == 0
+            and shape.bracket_before == 0
+            and is_binding(shape.first)
+        ):
+            end = index + 1
+            while end < len(lines):
+                previous = shapes[end - 1]
+                if previous.paren_after == 0 and previous.bracket_after == 0:
+                    break
+                end += 1
+            groups.append((index, end, branch_index))
+            index = end
+            continue
+        index += 1
+
+    if not groups:
+        return source, 0
+
+    insertions: dict[int, list[str]] = {}
+    removed: set[int] = set()
+    for start, end, branch_index in groups:
+        insertions.setdefault(branch_index, []).extend(lines[start:end])
+        removed.update(range(start, end))
+
+    output: list[str] = []
+    for index, line in enumerate(lines):
+        output.extend(insertions.get(index, ()))
+        if index not in removed:
+            output.append(line)
+    return "".join(output), len(groups)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=Path)
+    parser.add_argument("--compiler-entry", type=Path)
+    parser.add_argument("--report", action="store_true")
+    arguments = parser.parse_args()
+    if not arguments.root.is_dir():
+        parser.error(f"not a directory: {arguments.root}")
+
+    if arguments.compiler_entry is not None:
+        project = arguments.root / "CompilerProject.range"
+        if not project.is_file():
+            parser.error(f"missing staged compiler project: {project}")
+        project_source = project.read_text()
+        command_line_marker = "@commandLine\n"
+        if project_source.count(command_line_marker) != 1:
+            parser.error("staged compiler project does not have one @commandLine marker")
+        project.write_text(project_source.replace(command_line_marker, "", 1))
+
+    total = 0
+    changed_files = 0
+    for path in sorted(arguments.root.rglob("*.range")):
+        if not path.is_file():
+            continue
+        source = path.read_text()
+        try:
+            transformed, count = transform(source)
+        except ValueError as error:
+            print(f"range seed transform: {path}: {error}", file=sys.stderr)
+            return 65
+        if count:
+            path.write_text(transformed)
+            total += count
+            changed_files += 1
+    if arguments.compiler_entry is not None:
+        shutil.copyfile(
+            arguments.compiler_entry,
+            arguments.root / "GenerationZeroCompilerEntry.range",
+        )
+    if arguments.report:
+        print(
+            f"range seed transform: hoisted={total} files={changed_files}"
+            f" compilerEntry={arguments.compiler_entry is not None}",
+            file=sys.stderr,
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

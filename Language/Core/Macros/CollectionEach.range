@@ -1,0 +1,12 @@
+@collectionModifier
+macro each(): @many -> @one {
+    let action: #environment.Application.children.filter(all: Closure)
+    state input: #environment.target
+    state index: Int(0)
+
+    while index < input.count {
+        let element: input.element(index: index)
+        action(element)
+        index: index + 1
+    }
+}

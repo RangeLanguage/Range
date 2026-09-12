@@ -1,5 +1,5 @@
 @extern
-function rangeExternStringIdentity(value: String): String
+function rangeExternStringIdentity(let value: String): String
 
 @main {
     if rangeExternStringIdentity(value: String("Range")) == String("Range") {

@@ -1,9 +1,9 @@
-macro print(message: String): Void {
+macro print(let message: String): Void {
     @write(bytes: message.bytes, destination: .standard)
     @write(bytes: "\n".bytes, destination: .standard)
 }
 
-macro print(nodes: @many): Void {
+macro print(let nodes: @many): Void {
 
   nodes.each { node in
     @write(bytes: node.bytes, destination: .standard)

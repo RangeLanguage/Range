@@ -1,0 +1,19 @@
+@collectionModifier
+macro slice(let start: Int, let end: Int): @many -> @many {
+    state input: #environment.target
+    state lower: Int(start)
+    if lower < 0 { lower: 0 }
+
+    state upper: Int(end)
+    if upper < lower { upper: lower }
+    if upper > input.count { upper: input.count }
+
+    state output: @many(capacity: upper - lower)
+    state index: Int(lower)
+    while index < upper {
+        output.append(element: input.element(index: index))
+        index: index + 1
+    }
+
+    output
+}

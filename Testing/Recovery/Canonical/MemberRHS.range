@@ -1,0 +1,50 @@
+// Parse each member using the actual canonical Range parser. No name resolution
+// or ownership behavior is claimed by this structural test.
+function recoveryMemberRHSCase(let source: String, let expectedRHS: String, let hasInitializer: Bool): Bool {
+    let tokens: CompilerBRetainedTokenStore(compilerBLexRetained(source: source))
+    let nodes: SyntaxNodeStore(syntaxNodeStoreCreate(capacity: 64))
+    let process: CompilerBProcessGraph(compilerBProcessGraphCreate(capacity: 64))
+    let members: CompilerBMemberFacetStore(compilerBMemberFacetStoreCreate(capacity: 8))
+    let status: Int(compilerBParseMemberFacet(
+        source: source, tokens: tokens, nodes: nodes, process: process,
+        members: members, ownerSyntaxID: -1, memberIndex: 0
+    ))
+    state valid: Bool(status >= 0 && members.syntaxIDs.count == 1)
+    if valid {
+        let rhs: Int(members.rhsSyntaxIDs.element(index: 0))
+        if expectedRHS == "User" || expectedRHS == "original" {
+            // Both names take the ordinary expression path; neither is an
+            // initializer until resolution determines the referenced declaration.
+            if process.expressions.syntaxIDs.firstIndex(value: rhs) < 0 { valid: false }
+        }
+        let row: Int(nodes.ids.firstIndex(value: rhs))
+        if row < 0 { valid: false }
+        else {
+            let first: CompilerBToken(compilerBRetainedToken(
+                store: tokens, id: TokenID(value: nodes.firstTokenIDs.element(index: row))
+            ))
+            let last: CompilerBToken(compilerBRetainedToken(
+                store: tokens, id: TokenID(value: nodes.afterLastTokenIDs.element(index: row) - 1)
+            ))
+            if source.substring(start: first.start, end: last.end) != expectedRHS { valid: false }
+        }
+        if (members.initializerExpressionSyntaxIDs.element(index: 0) >= 0) != hasInitializer {
+            valid: false
+        }
+    }
+    compilerBMemberFacetStoreDestroy(store: members)
+    compilerBProcessGraphDestroy(graph: process)
+    syntaxNodeStoreDestroy(store: nodes)
+    compilerBRetainedTokenStoreDestroy(store: tokens)
+    return valid
+}
+
+function recoveryMemberRHS(): Int {
+    if !recoveryMemberRHSCase(source: "let user: User", expectedRHS: "User", hasInitializer: false) { return 1 }
+    if !recoveryMemberRHSCase(source: "let user: User()", expectedRHS: "User()", hasInitializer: true) { return 2 }
+    if !recoveryMemberRHSCase(source: "let user: original", expectedRHS: "original", hasInitializer: false) { return 3 }
+    if !recoveryMemberRHSCase(source: "let user: fetchUser()", expectedRHS: "fetchUser()", hasInitializer: true) { return 4 }
+    if !recoveryMemberRHSCase(source: "let user: User(name: String(\"George\"))", expectedRHS: "User(name: String(\"George\"))", hasInitializer: true) { return 5 }
+    if !recoveryMemberRHSCase(source: "let count: 255", expectedRHS: "255", hasInitializer: true) { return 6 }
+    return 42
+}

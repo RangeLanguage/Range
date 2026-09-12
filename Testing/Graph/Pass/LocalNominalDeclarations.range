@@ -1,7 +1,7 @@
 compilerPlotter
 compilerSourceFile\trole=project\tpath=Project/LocalNominalDeclarations.range
 
-function accumulate(value: Int): Int {
+function accumulate(let value: Int): Int {
     let copy: Int(value)
     state total: Int(copy)
     return total

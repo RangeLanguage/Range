@@ -1,16 +1,13 @@
 macro project(): Construct -> Void {
-function run() {
-//execute the graph [fast compass computation]
-state files: FileManager.get(".range")
+    let targets: #environment.target.macros.filter(for: @target)
 
+    if targets.isEmpty {
+        @diagnostic("Project must declare at least one @target")
+    }
 }
-function pause() {
 
-}
-function stop() {
-
-}
-function kill() {
-
-}
+construct Project {
+    let identity: String
+    let root: URL
+    let toolchainRoot: URL
 }

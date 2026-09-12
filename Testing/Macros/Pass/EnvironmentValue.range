@@ -1,6 +1,6 @@
 compilerMacroSnapshot
 compilerSourceFile\trole=core\tpath=Core/Macro/EnvironmentValue.range
-function retainEnvironment(value: @syntax): @syntax {
+function retainEnvironment(let value: @syntax): @syntax {
     return value
 }
 

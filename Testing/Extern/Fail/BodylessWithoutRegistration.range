@@ -1,1 +1,1 @@
-function rangeUnregisteredExtern(value: Int): Int
+function rangeUnregisteredExtern(let value: Int): Int

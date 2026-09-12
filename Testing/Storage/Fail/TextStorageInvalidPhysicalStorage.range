@@ -1,6 +1,6 @@
 compilerMacroSnapshot
-macro storage(_ syntax: Foreign<ASCII>): Construct -> Void {}
-macro literal(_ syntax: Foreign<ASCII>): Construct -> Void {}
+macro storage(let syntax: Foreign<ASCII>): Construct -> Void {}
+macro literal(let syntax: Foreign<ASCII>): Construct -> Void {}
 enum Signedness {
     case signed
     case unsigned
@@ -10,8 +10,8 @@ enum TextEncoding {
 }
 construct Character {}
 construct Buffer<Element> {}
-@storage(.text(encoding: .utf8, element: Character, codeUnit: Int<.unsigned, 8>))
-@literal(.text)
+@storage(syntax: .text(encoding: .utf8, element: Character, codeUnit: Int<.unsigned, 8>))
+@literal(syntax: .text)
 construct String {
     state bytes: Buffer<Int<.signed, 8>>
 }

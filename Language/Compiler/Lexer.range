@@ -1,4 +1,4 @@
-function compilerBLex(source: String, output: String): Int {
+function compilerBLex(let source: String, let output: String): Int {
     let tokens: CompilerBRetainedTokenStore(compilerBLexRetained(source: source))
     state tokenIndex: Int(0)
     output.append(text: "lex\tvalid=true\n")
@@ -13,11 +13,11 @@ function compilerBLex(source: String, output: String): Int {
 }
 
 function compilerBParse(
-    source: String,
-    rendered: String,
-    diagnostic: String
+    let source: String,
+    let rendered: String,
+    let diagnostic: String
 ): Int {
-    let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevision(source: source))
+    let revision: SyntaxRevision(compilerBParseSyntaxRevision(source: source))
     rendered.append(text: compilerBRenderSyntaxRevision(revision: revision))
     state valid: Bool(revision.valid)
     if !valid { diagnostic.append(text: revision.diagnostic) }
@@ -34,7 +34,7 @@ function compilerBParse(
         valid: false
         diagnostic.append(text: "unable to execute freestanding macro")
     }
-    if compilerBSyntaxRevisionDestroy(revision: revision) != 0 {
+    if syntaxRevisionDestroy(revision: revision) != 0 {
         valid: false
         diagnostic.append(text: "unable to destroy syntax revision")
     }

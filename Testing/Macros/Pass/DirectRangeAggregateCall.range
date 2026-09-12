@@ -5,7 +5,7 @@ construct MacroPair {
     let right: Int
 }
 
-function macroPair(value: Int): MacroPair {
+function macroPair(let value: Int): MacroPair {
     return MacroPair(left: value, right: value + 1)
 }
 

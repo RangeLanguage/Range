@@ -1,0 +1,238 @@
+construct Binary {
+    @many
+    state bytes: Byte
+}
+
+function binary(let capacity: Int): Binary {
+    return Binary(bytes: @many(capacity: capacity))
+}
+
+function binaryAppendUInt8(let output: Binary, let value: Int): Int {
+    if value < 0 || value > 255 { return 0 - 1 }
+    return output.bytes.append(element: Byte(bits: value))
+}
+
+function binaryAppendUInt16LE(let output: Binary, let value: Int): Int {
+    if value < 0 || value >= 65536 { return 0 - 1 }
+    if binaryAppendUInt8(output: output, value: value % 256) != 0
+        || binaryAppendUInt8(output: output, value: value / 256) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function binaryAppendUInt32LE(let output: Binary, let value: Int): Int {
+    if value < 0 || value >= unsigned32Limit() { return 0 - 1 }
+    state remaining: Int(value)
+    state index: Int(0)
+    while index < 4 {
+        if binaryAppendUInt8(
+            output: output,
+            value: remaining % 256
+        ) != 0 { return 0 - 1 }
+        remaining: remaining / 256
+        index: index + 1
+    }
+    return 0
+}
+
+function binaryAppendUInt64LE(let output: Binary, let value: Unsigned64): Int {
+    if !unsigned64IsValid(value: value)
+        || binaryAppendUInt32LE(output: output, value: value.low) != 0
+        || binaryAppendUInt32LE(output: output, value: value.high) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function binaryAppendUInt32BE(let output: Binary, let value: Int): Int {
+    if value < 0 || value >= unsigned32Limit() { return 0 - 1 }
+    state divisor: Int(16777216)
+    state index: Int(0)
+    while index < 4 {
+        if binaryAppendUInt8(
+            output: output,
+            value: (value / divisor) % 256
+        ) != 0 { return 0 - 1 }
+        divisor: divisor / 256
+        index: index + 1
+    }
+    return 0
+}
+
+function binaryAppendUInt64BE(let output: Binary, let value: Unsigned64): Int {
+    if !unsigned64IsValid(value: value)
+        || binaryAppendUInt32BE(output: output, value: value.high) != 0
+        || binaryAppendUInt32BE(output: output, value: value.low) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+@extern
+function binarySHA256(let value: String): String
+
+function binaryAppendBytes(let output: Binary, let bytes: @many Byte): Int {
+    return output.bytes.append(contentsOf: bytes)
+}
+
+function binaryAppendBinary(let output: Binary, let value: Binary): Int {
+    return binaryAppendBytes(output: output, bytes: value.bytes)
+}
+
+function binaryAppendString(let output: Binary, let value: String): Int {
+    state index: Int(0)
+    while index < value.count {
+        if binaryAppendUInt8(
+            output: output,
+            value: value.byte(index: index)
+        ) != 0 { return 0 - 1 }
+        index: index + 1
+    }
+    return 0
+}
+
+function binaryAppendZeroes(let output: Binary, let count: Int): Int {
+    if count < 0 { return 0 - 1 }
+    state index: Int(0)
+    while index < count {
+        if binaryAppendUInt8(output: output, value: 0) != 0 {
+            return 0 - 1
+        }
+        index: index + 1
+    }
+    return 0
+}
+
+function binaryAppendULEB128(let output: Binary, let value: Int): Int {
+    if value < 0 { return 0 - 1 }
+    state remaining: Int(value)
+    state complete: Bool(false)
+    while !complete {
+        state byte: Int(remaining % 128)
+        remaining: remaining / 128
+        if remaining != 0 { byte: byte + 128 }
+        if binaryAppendUInt8(output: output, value: byte) != 0 {
+            return 0 - 1
+        }
+        if remaining == 0 { complete: true }
+    }
+    return 0
+}
+
+function binaryAlign(let output: Binary, let alignment: Int): Int {
+    if alignment <= 0 { return 0 - 1 }
+    let remainder: Int(output.bytes.count % alignment)
+    if remainder == 0 { return 0 }
+    return binaryAppendZeroes(
+        output: output,
+        count: alignment - remainder
+    )
+}
+
+function binaryUInt8(let value: Binary, let offset: Int): Int {
+    if offset < 0 || offset >= value.bytes.count { return 0 - 1 }
+    return value.bytes.element(index: offset).bits
+}
+
+function binaryUInt16LE(let value: Binary, let offset: Int): Int {
+    let first: Int(binaryUInt8(value: value, offset: offset))
+    let second: Int(binaryUInt8(value: value, offset: offset + 1))
+    if first < 0 || second < 0 { return 0 - 1 }
+    return first + second * 256
+}
+
+function binaryUInt32LE(let value: Binary, let offset: Int): Int {
+    state result: Int(0)
+    state multiplier: Int(1)
+    state index: Int(0)
+    while index < 4 {
+        let byte: Int(binaryUInt8(value: value, offset: offset + index))
+        if byte < 0 { return 0 - 1 }
+        result: result + byte * multiplier
+        multiplier: multiplier * 256
+        index: index + 1
+    }
+    return result
+}
+
+function binaryUInt64LE(let value: Binary, let offset: Int): Unsigned64 {
+    return Unsigned64(
+        low: binaryUInt32LE(value: value, offset: offset),
+        high: binaryUInt32LE(value: value, offset: offset + 4)
+    )
+}
+
+function binaryPatchUInt8(let output: Binary, let offset: Int, let value: Int): Int {
+    if offset < 0 || offset >= output.bytes.count || value < 0 || value > 255 {
+        return 0 - 1
+    }
+    return output.bytes.update(element: Byte(bits: value), index: offset)
+}
+
+function binaryPatchUInt16LE(let output: Binary, let offset: Int, let value: Int): Int {
+    if value < 0 || value >= 65536 { return 0 - 1 }
+    if binaryPatchUInt8(output: output, offset: offset, value: value % 256) != 0
+        || binaryPatchUInt8(
+            output: output,
+            offset: offset + 1,
+            value: value / 256
+        ) != 0 { return 0 - 1 }
+    return 0
+}
+
+function binaryPatchUInt32LE(let output: Binary, let offset: Int, let value: Int): Int {
+    if value < 0 || value >= unsigned32Limit() { return 0 - 1 }
+    state remaining: Int(value)
+    state index: Int(0)
+    while index < 4 {
+        if binaryPatchUInt8(
+            output: output,
+            offset: offset + index,
+            value: remaining % 256
+        ) != 0 { return 0 - 1 }
+        remaining: remaining / 256
+        index: index + 1
+    }
+    return 0
+}
+
+function binaryPatchUInt64LE(
+    let output: Binary,
+    let offset: Int,
+    let value: Unsigned64
+): Int {
+    if !unsigned64IsValid(value: value)
+        || binaryPatchUInt32LE(
+            output: output,
+            offset: offset,
+            value: value.low
+        ) != 0
+        || binaryPatchUInt32LE(
+            output: output,
+            offset: offset + 4,
+            value: value.high
+        ) != 0 { return 0 - 1 }
+    return 0
+}
+
+function binarySlice(let value: Binary, let start: Int, let end: Int): Binary {
+    if start < 0 || end < start || end > value.bytes.count {
+        return binary(capacity: 0)
+    }
+    return Binary(bytes: value.bytes.slice(start: start, end: end))
+}
+
+function binaryFromString(let value: String): Binary {
+    let result: Binary(binary(capacity: value.count))
+    binaryAppendString(output: result, value: value)
+    return result
+}
+
+function binaryAsString(let value: Binary): String {
+    return String(bytes: value.bytes)
+}
+
+function binaryDestroy(let value: Binary): Int {
+    return value.bytes.destroy()
+}

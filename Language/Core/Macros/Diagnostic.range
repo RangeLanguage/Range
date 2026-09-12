@@ -2,6 +2,6 @@ construct Diagnostic {
     binding message: String
 }
 
-macro diagnostic(message: String): Void {
+macro diagnostic(let message: String): Void {
     Diagnostic(message: message)
 }

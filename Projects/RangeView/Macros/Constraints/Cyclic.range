@@ -1,4 +1,4 @@
-macro cyclic(origin: Value, period: Value): @member -> Value {
+macro cyclic(let origin: Value, let period: Value): @member -> Value {
   let value: #environment.target.Application.value
 
   if period <= 0 {

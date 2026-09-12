@@ -1,0 +1,13 @@
+// Primitive target address. This is not an owning container or a dereferenceable
+// construct with ordinary fields. See MemoryMeaning.md for the engine contract.
+@builtin
+construct Address {}
+
+@builtin
+function emptyAddress(): Address
+
+@builtin
+function addressIsEmpty(let address: Address): Bool
+
+@builtin
+function addressOffset(let address: Address, let bytes: Int): Address

@@ -36,7 +36,7 @@ function compilerBTokenKindLeftDelimiterCode(): Int { return 5 }
 function compilerBTokenKindRightDelimiterCode(): Int { return 6 }
 function compilerBTokenKindEOFCode(): Int { return 7 }
 
-function compilerBTokenKindFromCode(code: Int): CompilerBTokenKind {
+function compilerBTokenKindFromCode(let code: Int): CompilerBTokenKind {
     if code == compilerBTokenKindIdentityCode() { return .identity }
     if code == compilerBTokenKindIntegerCode() { return .integer }
     if code == compilerBTokenKindStringCode() { return .string }
@@ -46,7 +46,7 @@ function compilerBTokenKindFromCode(code: Int): CompilerBTokenKind {
     return .symbol
 }
 
-function compilerBTokenKindName(kind: CompilerBTokenKind): String {
+function compilerBTokenKindName(let kind: CompilerBTokenKind): String {
     if kind == .identity { return "identity" }
     if kind == .integer { return "integer" }
     if kind == .string { return "string" }
@@ -56,27 +56,27 @@ function compilerBTokenKindName(kind: CompilerBTokenKind): String {
     return "symbol"
 }
 
-function compilerBIsWhitespace(byte: Int): Bool {
+function compilerBIsWhitespace(let byte: Int): Bool {
     return byte == 9 || byte == 10 || byte == 13 || byte == 32
 }
 
-function compilerBIsLetter(byte: Int): Bool {
+function compilerBIsLetter(let byte: Int): Bool {
     return (byte >= 65 && byte <= 90) || (byte >= 97 && byte <= 122) || byte == 95
 }
 
-function compilerBIsDigit(byte: Int): Bool {
+function compilerBIsDigit(let byte: Int): Bool {
     return byte >= 48 && byte <= 57
 }
 
-function compilerBIsLeftDelimiter(byte: Int): Bool {
+function compilerBIsLeftDelimiter(let byte: Int): Bool {
     return byte == 40 || byte == 91 || byte == 123 || byte == 60
 }
 
-function compilerBIsRightDelimiter(byte: Int): Bool {
+function compilerBIsRightDelimiter(let byte: Int): Bool {
     return byte == 41 || byte == 93 || byte == 125 || byte == 62
 }
 
-function compilerBRetainedTokenStoreCreate(capacity: Int): CompilerBRetainedTokenStore {
+function compilerBRetainedTokenStoreCreate(let capacity: Int): CompilerBRetainedTokenStore {
     return CompilerBRetainedTokenStore(
         kinds: @many(capacity: capacity),
         starts: @many(capacity: capacity),
@@ -85,17 +85,17 @@ function compilerBRetainedTokenStoreCreate(capacity: Int): CompilerBRetainedToke
 }
 
 function compilerBRetainedTokenStoreAppend(
-    store: CompilerBRetainedTokenStore,
-    kind: Int,
-    start: Int,
-    end: Int
+    let store: CompilerBRetainedTokenStore,
+    let kind: Int,
+    let start: Int,
+    let end: Int
 ): Int {
     if store.kinds.append(element: kind) != 0 { return 0 - 1 }
     if store.starts.append(element: start) != 0 { return 0 - 1 }
     return store.ends.append(element: end)
 }
 
-function compilerBRetainedTokenStoreDestroy(store: CompilerBRetainedTokenStore): Int {
+function compilerBRetainedTokenStoreDestroy(let store: CompilerBRetainedTokenStore): Int {
     state status: Int(0)
     if store.kinds.destroy() != 0 { status: 0 - 1 }
     if store.starts.destroy() != 0 { status: 0 - 1 }
@@ -104,8 +104,8 @@ function compilerBRetainedTokenStoreDestroy(store: CompilerBRetainedTokenStore):
 }
 
 function compilerBRetainedToken(
-    store: CompilerBRetainedTokenStore,
-    id: TokenID
+    let store: CompilerBRetainedTokenStore,
+    let id: TokenID
 ): CompilerBToken {
     return CompilerBToken(
         id: id,
@@ -115,7 +115,7 @@ function compilerBRetainedToken(
     )
 }
 
-function compilerBLexRetained(source: String): CompilerBRetainedTokenStore {
+function compilerBLexRetained(let source: String): CompilerBRetainedTokenStore {
     let store: CompilerBRetainedTokenStore(compilerBRetainedTokenStoreCreate(capacity: source.count))
     state cursor: Int(0)
     while cursor < source.count {
@@ -209,14 +209,14 @@ function compilerBLexRetained(source: String): CompilerBRetainedTokenStore {
     return store
 }
 
-function compilerBTokenIdentityEquals(left: CompilerBToken, right: CompilerBToken): Bool {
+function compilerBTokenIdentityEquals(let left: CompilerBToken, let right: CompilerBToken): Bool {
     return left.id.value == right.id.value
 }
 
 function compilerBTokenMatchesBytes(
-    source: String,
-    token: CompilerBToken,
-    expected: String
+    let source: String,
+    let token: CompilerBToken,
+    let expected: String
 ): Bool {
     if token.end - token.start != expected.count { return false }
     state offset: Int(0)
@@ -230,9 +230,9 @@ function compilerBTokenMatchesBytes(
 }
 
 function compilerBTokenBytesEqual(
-    source: String,
-    left: CompilerBToken,
-    right: CompilerBToken
+    let source: String,
+    let left: CompilerBToken,
+    let right: CompilerBToken
 ): Bool {
     let count: Int(left.end - left.start)
     if count != right.end - right.start { return false }

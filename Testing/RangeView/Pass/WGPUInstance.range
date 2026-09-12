@@ -6,10 +6,10 @@ construct RangeViewWGPUInstance {}
 
 @extern
 @link(.wgpuNative)
-function wgpuCreateInstance(descriptor: RangeViewWGPUInstanceDescriptor): RangeViewWGPUInstance
+function wgpuCreateInstance(let descriptor: RangeViewWGPUInstanceDescriptor): RangeViewWGPUInstance
 
 @extern
-function wgpuInstanceRelease(instance: RangeViewWGPUInstance): Void
+function wgpuInstanceRelease(let instance: RangeViewWGPUInstance): Void
 
 @extern
 function wgpuGetVersion(): Int

@@ -3,7 +3,7 @@ construct NavigationStack {
     @many
     state path: @view
 
-    binding _ root: () -> @view
+    binding root: () -> @view
 
     derived body: @view {
         root()

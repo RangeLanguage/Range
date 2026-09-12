@@ -1,0 +1,1 @@
+function start(): Int { state value: Int while false { value: 42 } return value }

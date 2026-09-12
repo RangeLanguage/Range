@@ -1,0 +1,1613 @@
+construct FunctionGraphLoweringState {
+    let project: CompilerBProjectRevision
+    let graph: ProgramGraph
+    let revision: SyntaxRevision
+    let functionID: Int
+    let sourceID: Int
+    let functionSyntaxID: Int
+
+    @many state currentBlockIDs: Int
+    @many state lastEffectOperationIDs: Int
+    @many state currentScopeDepths: Int
+
+    @many state localIdentityTokenIDs: Int
+    @many state localValueIDs: Int
+    @many state localStorageCodes: Int
+    @many state localTypeIDs: Int
+    @many state localWidths: Int
+    @many state localScopeDepths: Int
+}
+
+function loweringCurrentBlockID(
+    let lowering: FunctionGraphLoweringState
+): Int {
+    return lowering.currentBlockIDs.element(index: 0)
+}
+
+function loweringSetCurrentBlockID(
+    let lowering: FunctionGraphLoweringState,
+    let value: Int
+): Int {
+    return lowering.currentBlockIDs.update(element: value, index: 0)
+}
+
+function loweringLastEffectOperationID(
+    let lowering: FunctionGraphLoweringState
+): Int {
+    return lowering.lastEffectOperationIDs.element(index: 0)
+}
+
+function loweringSetLastEffectOperationID(
+    let lowering: FunctionGraphLoweringState,
+    let value: Int
+): Int {
+    return lowering.lastEffectOperationIDs.update(element: value, index: 0)
+}
+
+function loweringCurrentScopeDepth(
+    let lowering: FunctionGraphLoweringState
+): Int {
+    return lowering.currentScopeDepths.element(index: 0)
+}
+
+function loweringSetCurrentScopeDepth(
+    let lowering: FunctionGraphLoweringState,
+    let value: Int
+): Int {
+    return lowering.currentScopeDepths.update(element: value, index: 0)
+}
+
+function graphBoolType(): TypeID { return TypeID(value: 0) }
+function graphIntType(): TypeID { return TypeID(value: 1) }
+function graphAddressType(): TypeID { return TypeID(value: 2) }
+function graphStringType(): TypeID { return TypeID(value: 3) }
+function graphURLType(): TypeID { return TypeID(value: 4) }
+function graphVoidType(): TypeID { return TypeID(value: 0 - 1) }
+
+function programGraphAppendBuiltinTypes(let graph: ProgramGraph): Int {
+    if programGraphAppendType(
+        graph: graph,
+        declarationRow: 0 - 1,
+        representation: .scalar,
+        width: 1,
+        alignment: 1
+    ).value != graphBoolType().value { return 0 - 1 }
+    if programGraphAppendType(
+        graph: graph,
+        declarationRow: 0 - 1,
+        representation: .scalar,
+        width: 8,
+        alignment: 8
+    ).value != graphIntType().value { return 0 - 1 }
+    if programGraphAppendType(
+        graph: graph,
+        declarationRow: 0 - 1,
+        representation: .address,
+        width: 8,
+        alignment: 8
+    ).value != graphAddressType().value { return 0 - 1 }
+    if programGraphAppendType(
+        graph: graph,
+        declarationRow: 0 - 1,
+        representation: .address,
+        width: 8,
+        alignment: 8
+    ).value != graphStringType().value { return 0 - 1 }
+    if programGraphAppendType(
+        graph: graph,
+        declarationRow: 0 - 1,
+        representation: .address,
+        width: 8,
+        alignment: 8
+    ).value != graphURLType().value { return 0 - 1 }
+    return 0
+}
+
+function graphTypeNamed(let name: String): TypeID {
+    if name == "Void" { return graphVoidType() }
+    if name == "Bool" || name == "Byte" { return graphBoolType() }
+    if name == "Int" || name == "Float" { return graphIntType() }
+    if name == "String" { return graphStringType() }
+    if name == "URL" { return graphURLType() }
+    return graphAddressType()
+}
+
+function graphEnsureDeclarationType(
+    let graph: ProgramGraph,
+    let declarationRow: Int
+): TypeID {
+    if declarationRow < 0 { return graphAddressType() }
+    state typeID: Int(0)
+    while typeID < graph.typeDeclarationRows.count {
+        if graph.typeDeclarationRows.element(index: typeID) == declarationRow {
+            return TypeID(value: typeID)
+        }
+        typeID: typeID + 1
+    }
+    return programGraphAppendType(
+        graph: graph,
+        declarationRow: declarationRow,
+        representation: .address,
+        width: 8,
+        alignment: 8
+    )
+}
+
+function graphTypeForToken(
+    let project: CompilerBProjectRevision,
+    let graph: ProgramGraph,
+    let revision: SyntaxRevision,
+    let tokenID: Int
+): TypeID {
+    let name: String(graphTokenText(revision: revision, tokenID: tokenID))
+    let builtin: TypeID(graphTypeNamed(name: name))
+    if builtin.value != graphAddressType().value || name == "Address" {
+        return builtin
+    }
+    let token: CompilerBToken(compilerBRetainedToken(
+        store: revision.tokens,
+        id: TokenID(value: tokenID)
+    ))
+    return graphEnsureDeclarationType(
+        graph: graph,
+        declarationRow: compilerBProjectDeclarationRowForToken(
+            declarations: project.declarations,
+            source: revision.source,
+            token: token,
+            kindCode: compilerBProjectDeclarationKindConstruct()
+        )
+    )
+}
+
+function graphTokenText(
+    let revision: SyntaxRevision,
+    let tokenID: Int
+): String {
+    if tokenID < 0 { return "" }
+    let token: CompilerBToken(compilerBRetainedToken(
+        store: revision.tokens,
+        id: TokenID(value: tokenID)
+    ))
+    return revision.source.substring(start: token.start, end: token.end)
+}
+
+function graphFunctionReturnType(
+    let project: CompilerBProjectRevision,
+    let graph: ProgramGraph,
+    let revision: SyntaxRevision,
+    let functionSyntaxID: Int
+): TypeID {
+    let row: Int(revision.functionSignatures.syntaxIDs.firstIndex(
+        value: functionSyntaxID
+    ))
+    if row < 0 { return graphVoidType() }
+    return graphTypeForToken(
+        project: project,
+        graph: graph,
+        revision: revision,
+        tokenID: revision.functionSignatures.returnTypeTokenIDs.element(
+            index: row
+        )
+    )
+}
+
+function graphFunctionID(
+    let graph: ProgramGraph,
+    let sourceID: Int,
+    let syntaxID: Int
+): Int {
+    state row: Int(0)
+    while row < graph.functionSourceIDs.count {
+        if graph.functionSourceIDs.element(index: row) == sourceID
+            && graph.functionSyntaxIDs.element(index: row) == syntaxID {
+            return row
+        }
+        row: row + 1
+    }
+    return 0 - 1
+}
+
+function graphEnsureFunction(
+    let project: CompilerBProjectRevision,
+    let graph: ProgramGraph,
+    let declarationRow: Int
+): Int {
+    if declarationRow < 0
+        || declarationRow >= project.declarations.syntaxIDs.count {
+        return 0 - 1
+    }
+    let sourceID: Int(project.declarations.sourceIDs.element(
+        index: declarationRow
+    ))
+    let syntaxID: Int(project.declarations.syntaxIDs.element(
+        index: declarationRow
+    ))
+    let existing: Int(graphFunctionID(
+        graph: graph,
+        sourceID: sourceID,
+        syntaxID: syntaxID
+    ))
+    if existing >= 0 { return existing }
+    let path: String(compilerBSourceSetPathAt(
+        paths: project.sourcePaths,
+        index: sourceID
+    ))
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+        source: fileManagerReadFile(path: path),
+        resolveRelationships: false
+    ))
+    let returnType: TypeID(graphFunctionReturnType(
+        project: project,
+        graph: graph,
+        revision: revision,
+        functionSyntaxID: syntaxID
+    ))
+    let external: Bool(compilerBFunctionHasExternRelationship(
+        revision: revision,
+        functionSyntaxID: syntaxID
+    ))
+    let functionID: Int(programGraphAppendFunction(
+        graph: graph,
+        sourceID: sourceID,
+        syntaxID: syntaxID,
+        returnType: returnType,
+        external: external
+    ))
+    if functionID >= 0 {
+        programGraphSetFunctionName(
+            graph: graph,
+            functionID: functionID,
+            name: compilerBProjectDeclarationName(
+                sourcePaths: project.sourcePaths,
+                declarations: project.declarations,
+                row: declarationRow
+            )
+        )
+        state parameterRow: Int(0)
+        while parameterRow < revision.functionParameters.functionSyntaxIDs.count {
+            if revision.functionParameters.functionSyntaxIDs.element(
+                index: parameterRow
+            ) == syntaxID {
+                let parameterType: TypeID(graphTypeForToken(
+                    project: project,
+                    graph: graph,
+                    revision: revision,
+                    tokenID: revision.functionParameters.typeTokenIDs.element(
+                        index: parameterRow
+                    )
+                ))
+                state parameterRepresentation: ValueRepresentation(.address)
+                state parameterWidth: Int(8)
+                if parameterType.value == graphBoolType().value {
+                    parameterRepresentation: .scalar
+                    parameterWidth: 1
+                } else if parameterType.value == graphIntType().value {
+                    parameterRepresentation: .scalar
+                }
+                let parameterValue: ValueID(programGraphAppendValue(
+                    graph: graph,
+                    producerOperationID: 0 - 1,
+                    producerOrdinal:
+                        revision.functionParameters.ordinals.element(
+                            index: parameterRow
+                        ),
+                    type: parameterType,
+                    representation: parameterRepresentation,
+                    width: parameterWidth,
+                    ownership: .borrowed
+                ))
+                if programGraphAppendFunctionParameter(
+                    graph: graph,
+                    functionID: functionID,
+                    ordinal: revision.functionParameters.ordinals.element(
+                        index: parameterRow
+                    ),
+                    type: parameterType,
+                    value: parameterValue
+                ) != 0 {
+                    syntaxRevisionDestroy(revision: revision)
+                    return 0 - 1
+                }
+            }
+            parameterRow: parameterRow + 1
+        }
+    }
+    syntaxRevisionDestroy(revision: revision)
+    return functionID
+}
+
+function graphOperationIsEffectful(let kind: OperationKind): Bool {
+    return kind == .allocate || kind == .store || kind == .load || kind == .call
+        || kind == .output || kind == .destroy
+}
+
+function graphAppendOperation(
+    let lowering: FunctionGraphLoweringState,
+    let kind: OperationKind,
+    let syntaxID: Int,
+    let declarationRow: Int,
+    let targetFunctionID: Int,
+    let immediate: Int,
+    let width: Int
+): Int {
+    let operationID: Int(programGraphAppendOperation(
+        graph: lowering.graph,
+        blockID: loweringCurrentBlockID(lowering: lowering),
+        kind: kind,
+        sourceID: lowering.sourceID,
+        syntaxID: syntaxID,
+        declarationRow: declarationRow,
+        targetFunctionID: targetFunctionID,
+        immediate: immediate,
+        width: width
+    ))
+    if operationID < 0 { return operationID }
+    if graphOperationIsEffectful(kind: kind) {
+        if loweringLastEffectOperationID(lowering: lowering) >= 0
+            && programGraphAppendEffect(
+                graph: lowering.graph,
+                sourceOperationID: loweringLastEffectOperationID(lowering: lowering),
+                targetOperationID: operationID
+            ) != 0 { return 0 - 1 }
+        loweringSetLastEffectOperationID(lowering: lowering, value: operationID)
+    }
+    return operationID
+}
+
+function graphLocalValue(
+    let lowering: FunctionGraphLoweringState,
+    let expressionSyntaxID: Int
+): ValueID {
+    let expressionRow: Int(lowering.revision.process.expressions.syntaxIDs.firstIndex(
+        value: expressionSyntaxID
+    ))
+    if expressionRow < 0 { return ValueID(value: 0 - 1) }
+    let tokenID: Int(lowering.revision.process.expressions.firstTokenIDs.element(
+        index: expressionRow
+    ))
+    let token: CompilerBToken(compilerBRetainedToken(
+        store: lowering.revision.tokens,
+        id: TokenID(value: tokenID)
+    ))
+    state row: Int(lowering.localIdentityTokenIDs.count - 1)
+    while row >= 0 {
+        let identity: CompilerBToken(compilerBRetainedToken(
+            store: lowering.revision.tokens,
+            id: TokenID(value: lowering.localIdentityTokenIDs.element(index: row))
+        ))
+        if lowering.localScopeDepths.element(index: row)
+                <= loweringCurrentScopeDepth(lowering: lowering)
+            && compilerBTokenBytesEqual(
+            source: lowering.revision.source,
+            left: token,
+            right: identity
+        ) {
+            let bound: ValueID(
+                value: lowering.localValueIDs.element(index: row)
+            )
+            if lowering.localStorageCodes.element(index: row) == 0 {
+                return bound
+            }
+            let loadID: Int(graphAppendOperation(
+                lowering: lowering,
+                kind: .load,
+                syntaxID: expressionSyntaxID,
+                declarationRow: 0 - 1,
+                targetFunctionID: 0 - 1,
+                immediate: 0,
+                width: lowering.localWidths.element(index: row)
+            ))
+            if loadID < 0 || programGraphAppendOperand(
+                graph: lowering.graph,
+                operationID: loadID,
+                ordinal: 0,
+                value: bound
+            ) != 0 { return ValueID(value: 0 - 1) }
+            state representation: ValueRepresentation(.address)
+            state ownership: ValueOwnership(.owned)
+            if lowering.localTypeIDs.element(index: row)
+                    == graphBoolType().value
+                || lowering.localTypeIDs.element(index: row)
+                    == graphIntType().value {
+                representation: .scalar
+                ownership: .borrowed
+            }
+            return programGraphAppendValue(
+                graph: lowering.graph,
+                producerOperationID: loadID,
+                producerOrdinal: 0,
+                type: TypeID(value: lowering.localTypeIDs.element(index: row)),
+                representation: representation,
+                width: lowering.localWidths.element(index: row),
+                ownership: ownership
+            )
+        }
+        row: row - 1
+    }
+    return ValueID(value: 0 - 1)
+}
+
+function graphBindLocal(
+    let lowering: FunctionGraphLoweringState,
+    let identityTokenID: Int,
+    let value: ValueID,
+    let storage: Bool,
+    let type: TypeID,
+    let width: Int
+): Int {
+    state storageCode: Int(0)
+    if storage { storageCode: 1 }
+    if lowering.localIdentityTokenIDs.append(element: identityTokenID) != 0
+        || lowering.localValueIDs.append(element: value.value) != 0
+        || lowering.localStorageCodes.append(element: storageCode) != 0
+        || lowering.localTypeIDs.append(element: type.value) != 0
+        || lowering.localWidths.append(element: width) != 0
+        || lowering.localScopeDepths.append(
+            element: loweringCurrentScopeDepth(lowering: lowering)
+        ) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function graphLowerCallExpression(
+    let lowering: FunctionGraphLoweringState,
+    let expressionSyntaxID: Int,
+    let applicationRow: Int
+): ValueID {
+    let identity: CompilerBToken(compilerBRetainedToken(
+        store: lowering.revision.tokens,
+        id: TokenID(value: lowering.revision.process.applications.identityTokenIDs.element(
+            index: applicationRow
+        ))
+    ))
+    let declarationRow: Int(compilerBProjectDeclarationRowForToken(
+        declarations: lowering.project.declarations,
+        source: lowering.revision.source,
+        token: identity,
+        kindCode: compilerBProjectDeclarationKindFunction()
+    ))
+    if declarationRow < 0 {
+        let macroRow: Int(compilerBProjectMacroDeclarationRowForToken(
+            declarations: lowering.project.declarations,
+            source: lowering.revision.source,
+            token: identity
+        ))
+        if macroRow >= 0 {
+            let macroName: String(compilerBProjectDeclarationName(
+                sourcePaths: lowering.project.sourcePaths,
+                declarations: lowering.project.declarations,
+                row: macroRow
+            ))
+            if macroName == "print" || macroName == "write" {
+                state bytes: ValueID(value: 0 - 1)
+                state argumentRow: Int(0)
+                while argumentRow
+                    < lowering.revision.process.arguments.applicationSyntaxIDs.count {
+                    if lowering.revision.process.arguments.applicationSyntaxIDs.element(
+                            index: argumentRow
+                        ) == expressionSyntaxID
+                        && lowering.revision.process.arguments.ordinals.element(
+                            index: argumentRow
+                        ) == 0 {
+                        bytes: graphLowerExpression(
+                            lowering: lowering,
+                            expressionSyntaxID:
+                                lowering.revision.process.arguments.valueExpressionSyntaxIDs.element(
+                                    index: argumentRow
+                                )
+                        )
+                    }
+                    argumentRow: argumentRow + 1
+                }
+                let outputID: Int(graphAppendOperation(
+                    lowering: lowering,
+                    kind: .output,
+                    syntaxID: expressionSyntaxID,
+                    declarationRow: macroRow,
+                    targetFunctionID: 0 - 1,
+                    immediate: 1,
+                    width: 1
+                ))
+                if outputID >= 0 && bytes.value >= 0 {
+                    programGraphAppendOperand(
+                        graph: lowering.graph,
+                        operationID: outputID,
+                        ordinal: 0,
+                        value: bytes
+                    )
+                }
+                return ValueID(value: 0 - 1)
+            }
+        }
+        let constructorRow: Int(compilerBProjectDeclarationRowForToken(
+            declarations: lowering.project.declarations,
+            source: lowering.revision.source,
+            token: identity,
+            kindCode: compilerBProjectDeclarationKindConstruct()
+        ))
+        state argumentCount: Int(0)
+        state argumentRow: Int(0)
+        while argumentRow
+            < lowering.revision.process.arguments.applicationSyntaxIDs.count {
+            if lowering.revision.process.arguments.applicationSyntaxIDs.element(
+                    index: argumentRow
+                ) == expressionSyntaxID {
+                argumentCount: argumentCount + 1
+            }
+            argumentRow: argumentRow + 1
+        }
+        if constructorRow < 0 && argumentCount == 1 {
+            argumentRow: 0
+            while argumentRow
+                < lowering.revision.process.arguments.applicationSyntaxIDs.count {
+                if lowering.revision.process.arguments.applicationSyntaxIDs.element(
+                        index: argumentRow
+                    ) == expressionSyntaxID {
+                    return graphLowerExpression(
+                        lowering: lowering,
+                        expressionSyntaxID:
+                            lowering.revision.process.arguments.valueExpressionSyntaxIDs.element(
+                                index: argumentRow
+                            )
+                    )
+                }
+                argumentRow: argumentRow + 1
+            }
+        }
+        let constructorType: TypeID(graphEnsureDeclarationType(
+            graph: lowering.graph,
+            declarationRow: constructorRow
+        ))
+        let operationID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .allocate,
+            syntaxID: expressionSyntaxID,
+            declarationRow: constructorRow,
+            targetFunctionID: 0 - 1,
+            immediate: 0,
+            width: argumentCount * 8
+        ))
+        if operationID < 0 { return ValueID(value: 0 - 1) }
+        let instance: ValueID(programGraphAppendValue(
+            graph: lowering.graph,
+            producerOperationID: operationID,
+            producerOrdinal: 0,
+            type: constructorType,
+            representation: .address,
+            width: 8,
+            ownership: .owned
+        ))
+        state expectedOrdinal: Int(0)
+        while expectedOrdinal < argumentCount {
+            argumentRow: 0
+            while argumentRow
+                < lowering.revision.process.arguments.applicationSyntaxIDs.count {
+                if lowering.revision.process.arguments.applicationSyntaxIDs.element(
+                        index: argumentRow
+                    ) == expressionSyntaxID
+                    && lowering.revision.process.arguments.ordinals.element(
+                        index: argumentRow
+                    ) == expectedOrdinal {
+                    let fieldValue: ValueID(graphLowerExpression(
+                        lowering: lowering,
+                        expressionSyntaxID:
+                            lowering.revision.process.arguments.valueExpressionSyntaxIDs.element(
+                                index: argumentRow
+                            )
+                    ))
+                    let addressID: Int(graphAppendOperation(
+                        lowering: lowering,
+                        kind: .address,
+                        syntaxID: expressionSyntaxID,
+                        declarationRow: constructorRow,
+                        targetFunctionID: 0 - 1,
+                        immediate: expectedOrdinal * 8,
+                        width: 8
+                    ))
+                    let fieldAddress: ValueID(programGraphAppendValue(
+                        graph: lowering.graph,
+                        producerOperationID: addressID,
+                        producerOrdinal: 0,
+                        type: graphAddressType(),
+                        representation: .address,
+                        width: 8,
+                        ownership: .borrowed
+                    ))
+                    if fieldValue.value < 0 || addressID < 0
+                        || programGraphAppendOperand(
+                            graph: lowering.graph,
+                            operationID: addressID,
+                            ordinal: 0,
+                            value: instance
+                        ) != 0 {
+                        return ValueID(value: 0 - 1)
+                    }
+                    let storeID: Int(graphAppendOperation(
+                        lowering: lowering,
+                        kind: .store,
+                        syntaxID: expressionSyntaxID,
+                        declarationRow: constructorRow,
+                        targetFunctionID: 0 - 1,
+                        immediate: expectedOrdinal * 8,
+                        width: lowering.graph.valueWidths.element(
+                            index: fieldValue.value
+                        )
+                    ))
+                    if storeID < 0 || programGraphAppendOperand(
+                        graph: lowering.graph,
+                        operationID: storeID,
+                        ordinal: 0,
+                        value: fieldAddress
+                    ) != 0 || programGraphAppendOperand(
+                        graph: lowering.graph,
+                        operationID: storeID,
+                        ordinal: 1,
+                        value: fieldValue
+                    ) != 0 { return ValueID(value: 0 - 1) }
+                }
+                argumentRow: argumentRow + 1
+            }
+            expectedOrdinal: expectedOrdinal + 1
+        }
+        return instance
+    }
+    let targetFunctionID: Int(graphEnsureFunction(
+        project: lowering.project,
+        graph: lowering.graph,
+        declarationRow: declarationRow
+    ))
+    if targetFunctionID < 0 { return ValueID(value: 0 - 1) }
+    let operationID: Int(graphAppendOperation(
+        lowering: lowering,
+        kind: .call,
+        syntaxID: expressionSyntaxID,
+        declarationRow: declarationRow,
+        targetFunctionID: targetFunctionID,
+        immediate: 0,
+        width: 8
+    ))
+    if operationID < 0 { return ValueID(value: 0 - 1) }
+    state operandOrdinal: Int(0)
+    let predecessorID: Int(
+        lowering.revision.process.applications.predecessorSyntaxIDs.element(
+            index: applicationRow
+        )
+    )
+    if predecessorID >= 0 {
+        let predecessor: ValueID(graphLowerExpression(
+            lowering: lowering,
+            expressionSyntaxID: predecessorID
+        ))
+        if predecessor.value >= 0 {
+            programGraphAppendOperand(
+                graph: lowering.graph,
+                operationID: operationID,
+                ordinal: operandOrdinal,
+                value: predecessor
+            )
+            operandOrdinal: operandOrdinal + 1
+        }
+    }
+    state expectedOrdinal: Int(0)
+    while expectedOrdinal < lowering.revision.process.arguments.ordinals.count {
+        state argumentRow: Int(0)
+        while argumentRow
+            < lowering.revision.process.arguments.applicationSyntaxIDs.count {
+            if lowering.revision.process.arguments.applicationSyntaxIDs.element(
+                    index: argumentRow
+                ) == expressionSyntaxID
+                && lowering.revision.process.arguments.ordinals.element(
+                    index: argumentRow
+                ) == expectedOrdinal {
+                let argument: ValueID(graphLowerExpression(
+                    lowering: lowering,
+                    expressionSyntaxID:
+                        lowering.revision.process.arguments.valueExpressionSyntaxIDs.element(
+                            index: argumentRow
+                        )
+                ))
+                if argument.value >= 0 {
+                    programGraphAppendOperand(
+                        graph: lowering.graph,
+                        operationID: operationID,
+                        ordinal: operandOrdinal,
+                        value: argument
+                    )
+                    operandOrdinal: operandOrdinal + 1
+                }
+            }
+            argumentRow: argumentRow + 1
+        }
+        expectedOrdinal: expectedOrdinal + 1
+    }
+    let returnTypeID: Int(lowering.graph.functionReturnTypeIDs.element(
+        index: targetFunctionID
+    ))
+    if returnTypeID < 0 { return ValueID(value: 0 - 1) }
+    state representation: ValueRepresentation(.address)
+    state ownership: ValueOwnership(.owned)
+    state width: Int(8)
+    if returnTypeID == graphBoolType().value {
+        representation: .scalar
+        ownership: .borrowed
+        width: 1
+    } else if returnTypeID == graphIntType().value {
+        representation: .scalar
+        ownership: .borrowed
+    }
+    return programGraphAppendValue(
+        graph: lowering.graph,
+        producerOperationID: operationID,
+        producerOrdinal: 0,
+        type: TypeID(value: returnTypeID),
+        representation: representation,
+        width: width,
+        ownership: ownership
+    )
+}
+
+function graphLowerExpression(
+    let lowering: FunctionGraphLoweringState,
+    let expressionSyntaxID: Int
+): ValueID {
+    let expressionRow: Int(lowering.revision.process.expressions.syntaxIDs.firstIndex(
+        value: expressionSyntaxID
+    ))
+    if expressionRow < 0 { return ValueID(value: 0 - 1) }
+    let kind: Int(lowering.revision.process.expressions.kindCodes.element(
+        index: expressionRow
+    ))
+    if kind == compilerBParserExpressionKindIntegerCode()
+        || kind == compilerBParserExpressionKindBooleanCode() {
+        state type: TypeID(graphIntType())
+        state width: Int(8)
+        if kind == compilerBParserExpressionKindBooleanCode() {
+            type: graphBoolType()
+            width: 1
+        }
+        let operationID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .constant,
+            syntaxID: expressionSyntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate: lowering.revision.process.expressions.integerValues.element(
+                index: expressionRow
+            ),
+            width: width
+        ))
+        return programGraphAppendValue(
+            graph: lowering.graph,
+            producerOperationID: operationID,
+            producerOrdinal: 0,
+            type: type,
+            representation: .scalar,
+            width: width,
+            ownership: .borrowed
+        )
+    }
+    if kind == compilerBParserExpressionKindStringCode() {
+        let operationID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .constant,
+            syntaxID: expressionSyntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate: 0,
+            width: 8
+        ))
+        return programGraphAppendValue(
+            graph: lowering.graph,
+            producerOperationID: operationID,
+            producerOrdinal: 0,
+            type: graphStringType(),
+            representation: .address,
+            width: 8,
+            ownership: .owned
+        )
+    }
+    if kind == compilerBParserExpressionKindComparisonCode() {
+        let comparisonRow: Int(
+            lowering.revision.process.comparisons.syntaxIDs.firstIndex(
+                value: expressionSyntaxID
+            )
+        )
+        if comparisonRow < 0 { return ValueID(value: 0 - 1) }
+        let left: ValueID(graphLowerExpression(
+            lowering: lowering,
+            expressionSyntaxID:
+                lowering.revision.process.comparisons.leftExpressionSyntaxIDs.element(
+                    index: comparisonRow
+                )
+        ))
+        let right: ValueID(graphLowerExpression(
+            lowering: lowering,
+            expressionSyntaxID:
+                lowering.revision.process.comparisons.rightExpressionSyntaxIDs.element(
+                    index: comparisonRow
+                )
+        ))
+        let operationID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .compare,
+            syntaxID: expressionSyntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate:
+                lowering.revision.process.comparisons.operatorCodes.element(
+                    index: comparisonRow
+                ),
+            width: 8
+        ))
+        programGraphAppendOperand(
+            graph: lowering.graph,
+            operationID: operationID,
+            ordinal: 0,
+            value: left
+        )
+        programGraphAppendOperand(
+            graph: lowering.graph,
+            operationID: operationID,
+            ordinal: 1,
+            value: right
+        )
+        return programGraphAppendValue(
+            graph: lowering.graph,
+            producerOperationID: operationID,
+            producerOrdinal: 0,
+            type: graphBoolType(),
+            representation: .scalar,
+            width: 1,
+            ownership: .borrowed
+        )
+    }
+    if kind == compilerBParserExpressionKindLogicalCode() {
+        let logicalRow: Int(lowering.revision.process.logicals.syntaxIDs.firstIndex(
+            value: expressionSyntaxID
+        ))
+        if logicalRow < 0 { return ValueID(value: 0 - 1) }
+        let left: ValueID(graphLowerExpression(
+            lowering: lowering,
+            expressionSyntaxID:
+                lowering.revision.process.logicals.leftExpressionSyntaxIDs.element(
+                    index: logicalRow
+                )
+        ))
+        state right: ValueID(value: 0 - 1)
+        let rightExpressionID: Int(
+            lowering.revision.process.logicals.rightExpressionSyntaxIDs.element(
+                index: logicalRow
+            )
+        )
+        if rightExpressionID >= 0 {
+            right: graphLowerExpression(
+                lowering: lowering,
+                expressionSyntaxID: rightExpressionID
+            )
+        }
+        let operationID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .logical,
+            syntaxID: expressionSyntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate: lowering.revision.process.logicals.operatorCodes.element(
+                index: logicalRow
+            ),
+            width: 1
+        ))
+        if left.value < 0 || operationID < 0
+            || programGraphAppendOperand(
+                graph: lowering.graph,
+                operationID: operationID,
+                ordinal: 0,
+                value: left
+            ) != 0 { return ValueID(value: 0 - 1) }
+        if right.value >= 0 {
+            programGraphAppendOperand(
+                graph: lowering.graph,
+                operationID: operationID,
+                ordinal: 1,
+                value: right
+            )
+        }
+        return programGraphAppendValue(
+            graph: lowering.graph,
+            producerOperationID: operationID,
+            producerOrdinal: 0,
+            type: graphBoolType(),
+            representation: .scalar,
+            width: 1,
+            ownership: .borrowed
+        )
+    }
+    let applicationRow: Int(lowering.revision.process.applications.syntaxIDs.firstIndex(
+        value: expressionSyntaxID
+    ))
+    if applicationRow >= 0 {
+        return graphLowerCallExpression(
+            lowering: lowering,
+            expressionSyntaxID: expressionSyntaxID,
+            applicationRow: applicationRow
+        )
+    }
+    return graphLocalValue(
+        lowering: lowering,
+        expressionSyntaxID: expressionSyntaxID
+    )
+}
+
+function graphBlockIsTerminated(let graph: ProgramGraph, let blockID: Int): Bool {
+    return blockID >= 0 && blockID < graph.blockTerminatedCodes.count
+        && graph.blockTerminatedCodes.element(index: blockID) != 0
+}
+
+function graphTerminateBlockTo(
+    let lowering: FunctionGraphLoweringState,
+    let targetBlockID: Int,
+    let syntaxID: Int
+): Int {
+    let sourceBlockID: Int(loweringCurrentBlockID(lowering: lowering))
+    let operationID: Int(graphAppendOperation(
+        lowering: lowering,
+        kind: .branch,
+        syntaxID: syntaxID,
+        declarationRow: 0 - 1,
+        targetFunctionID: 0 - 1,
+        immediate: 0,
+        width: 0
+    ))
+    if operationID < 0 { return 0 - 1 }
+    return programGraphAppendControl(
+        graph: lowering.graph,
+        sourceBlockID: sourceBlockID,
+        targetBlockID: targetBlockID,
+        predicate: ValueID(value: 0 - 1),
+        expectedValue: 0,
+        ordinal: 0
+    )
+}
+
+function graphLowerLocalRow(
+    let lowering: FunctionGraphLoweringState,
+    let localRow: Int
+): Int {
+    let syntaxID: Int(lowering.revision.process.locals.syntaxIDs.element(
+        index: localRow
+    ))
+    let value: ValueID(graphLowerExpression(
+        lowering: lowering,
+        expressionSyntaxID:
+            lowering.revision.process.locals.valueExpressionSyntaxIDs.element(
+                index: localRow
+            )
+    ))
+    if value.value < 0 { return 0 - 1 }
+    let type: TypeID(value: lowering.graph.valueTypeIDs.element(
+        index: value.value
+    ))
+    let width: Int(lowering.graph.valueWidths.element(index: value.value))
+    if lowering.revision.process.locals.kindCodes.element(index: localRow)
+        == compilerBParserMemberKindStateCode() {
+        let allocationID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .allocate,
+            syntaxID: syntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate: 0,
+            width: width
+        ))
+        let address: ValueID(programGraphAppendValue(
+            graph: lowering.graph,
+            producerOperationID: allocationID,
+            producerOrdinal: 0,
+            type: graphAddressType(),
+            representation: .address,
+            width: 8,
+            ownership: .owned
+        ))
+        let storeID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .store,
+            syntaxID: syntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate: 0,
+            width: width
+        ))
+        programGraphAppendOperand(
+            graph: lowering.graph,
+            operationID: storeID,
+            ordinal: 0,
+            value: address
+        )
+        programGraphAppendOperand(
+            graph: lowering.graph,
+            operationID: storeID,
+            ordinal: 1,
+            value: value
+        )
+        return graphBindLocal(
+            lowering: lowering,
+            identityTokenID:
+                lowering.revision.process.locals.identityTokenIDs.element(
+                    index: localRow
+                ),
+            value: address,
+            storage: true,
+            type: type,
+            width: width
+        )
+    }
+    return graphBindLocal(
+        lowering: lowering,
+        identityTokenID: lowering.revision.process.locals.identityTokenIDs.element(
+            index: localRow
+        ),
+        value: value,
+        storage: false,
+        type: type,
+        width: width
+    )
+}
+
+function graphLowerAssignmentRow(
+    let lowering: FunctionGraphLoweringState,
+    let assignmentRow: Int
+): Int {
+    let value: ValueID(graphLowerExpression(
+        lowering: lowering,
+        expressionSyntaxID:
+            lowering.revision.process.assignments.valueExpressionSyntaxIDs.element(
+                index: assignmentRow
+            )
+    ))
+    if value.value < 0 { return 0 - 1 }
+    let assignmentToken: CompilerBToken(compilerBRetainedToken(
+        store: lowering.revision.tokens,
+        id: TokenID(value:
+            lowering.revision.process.assignments.identityTokenIDs.element(
+                index: assignmentRow
+            )
+        )
+    ))
+    state localRow: Int(lowering.localIdentityTokenIDs.count - 1)
+    while localRow >= 0 {
+        let localToken: CompilerBToken(compilerBRetainedToken(
+            store: lowering.revision.tokens,
+            id: TokenID(value: lowering.localIdentityTokenIDs.element(
+                index: localRow
+            ))
+        ))
+        if lowering.localScopeDepths.element(index: localRow)
+                <= loweringCurrentScopeDepth(lowering: lowering)
+            && compilerBTokenBytesEqual(
+            source: lowering.revision.source,
+            left: assignmentToken,
+            right: localToken
+        ) {
+            if lowering.localStorageCodes.element(index: localRow) == 0 {
+                return 0 - 1
+            }
+            let storeID: Int(graphAppendOperation(
+                lowering: lowering,
+                kind: .store,
+                syntaxID:
+                    lowering.revision.process.assignments.syntaxIDs.element(
+                        index: assignmentRow
+                    ),
+                declarationRow: 0 - 1,
+                targetFunctionID: 0 - 1,
+                immediate: 0,
+                width: lowering.localWidths.element(index: localRow)
+            ))
+            if storeID < 0
+                || programGraphAppendOperand(
+                    graph: lowering.graph,
+                    operationID: storeID,
+                    ordinal: 0,
+                    value: ValueID(value:
+                        lowering.localValueIDs.element(index: localRow)
+                    )
+                ) != 0
+                || programGraphAppendOperand(
+                    graph: lowering.graph,
+                    operationID: storeID,
+                    ordinal: 1,
+                    value: value
+                ) != 0 { return 0 - 1 }
+            return 0
+        }
+        localRow: localRow - 1
+    }
+    return 0 - 1
+}
+
+function graphLowerReturnRow(
+    let lowering: FunctionGraphLoweringState,
+    let returnRow: Int
+): Int {
+    let syntaxID: Int(lowering.revision.process.returns.syntaxIDs.element(
+        index: returnRow
+    ))
+    let expressionID: Int(
+        lowering.revision.process.returns.valueExpressionSyntaxIDs.element(
+            index: returnRow
+        )
+    )
+    state value: ValueID(value: 0 - 1)
+    if expressionID >= 0 {
+        value: graphLowerExpression(
+            lowering: lowering,
+            expressionSyntaxID: expressionID
+        )
+    }
+    let operationID: Int(graphAppendOperation(
+        lowering: lowering,
+        kind: .return,
+        syntaxID: syntaxID,
+        declarationRow: 0 - 1,
+        targetFunctionID: 0 - 1,
+        immediate: 0,
+        width: 0
+    ))
+    if operationID < 0 { return 0 - 1 }
+    if value.value >= 0 {
+        return programGraphAppendOperand(
+            graph: lowering.graph,
+            operationID: operationID,
+            ordinal: 0,
+            value: value
+        )
+    }
+    return 0
+}
+
+function graphLowerConditionalRow(
+    let lowering: FunctionGraphLoweringState,
+    let conditionalRow: Int
+): Int {
+    let syntaxID: Int(lowering.revision.process.conditionals.syntaxIDs.element(
+        index: conditionalRow
+    ))
+    let predicate: ValueID(graphLowerExpression(
+        lowering: lowering,
+        expressionSyntaxID:
+            lowering.revision.process.conditionals.conditionExpressionSyntaxIDs.element(
+                index: conditionalRow
+            )
+    ))
+    if predicate.value < 0 { return 0 - 1 }
+    let sourceBlockID: Int(loweringCurrentBlockID(lowering: lowering))
+    let branchID: Int(graphAppendOperation(
+        lowering: lowering,
+        kind: .branch,
+        syntaxID: syntaxID,
+        declarationRow: 0 - 1,
+        targetFunctionID: 0 - 1,
+        immediate: 0,
+        width: 0
+    ))
+    if branchID < 0 || programGraphAppendOperand(
+        graph: lowering.graph,
+        operationID: branchID,
+        ordinal: 0,
+        value: predicate
+    ) != 0 { return 0 - 1 }
+    let trueBlockID: Int(programGraphAppendBlock(
+        graph: lowering.graph,
+        functionID: lowering.functionID,
+        syntaxID: lowering.revision.process.conditionals.bodySyntaxIDs.element(
+            index: conditionalRow
+        )
+    ))
+    let continuationBlockID: Int(programGraphAppendBlock(
+        graph: lowering.graph,
+        functionID: lowering.functionID,
+        syntaxID: syntaxID
+    ))
+    let alternativeSyntaxID: Int(
+        lowering.revision.process.conditionals.alternativeSyntaxIDs.element(
+            index: conditionalRow
+        )
+    )
+    state falseBlockID: Int(continuationBlockID)
+    if alternativeSyntaxID >= 0 {
+        falseBlockID: programGraphAppendBlock(
+            graph: lowering.graph,
+            functionID: lowering.functionID,
+            syntaxID: alternativeSyntaxID
+        )
+    }
+    if programGraphAppendControl(
+        graph: lowering.graph,
+        sourceBlockID: sourceBlockID,
+        targetBlockID: trueBlockID,
+        predicate: predicate,
+        expectedValue: 1,
+        ordinal: 0
+    ) != 0 || programGraphAppendControl(
+        graph: lowering.graph,
+        sourceBlockID: sourceBlockID,
+        targetBlockID: falseBlockID,
+        predicate: predicate,
+        expectedValue: 0,
+        ordinal: 1
+    ) != 0 { return 0 - 1 }
+
+    let parentScopeDepth: Int(loweringCurrentScopeDepth(lowering: lowering))
+    loweringSetCurrentScopeDepth(lowering: lowering, value: parentScopeDepth + 1)
+    loweringSetCurrentBlockID(lowering: lowering, value: trueBlockID)
+    loweringSetLastEffectOperationID(lowering: lowering, value: 0 - 1)
+    if graphLowerOwner(
+        lowering: lowering,
+        ownerSyntaxID:
+            lowering.revision.process.conditionals.bodySyntaxIDs.element(
+                index: conditionalRow
+            )
+    ) != 0 { return 0 - 1 }
+    if !graphBlockIsTerminated(
+        graph: lowering.graph,
+        blockID: loweringCurrentBlockID(lowering: lowering)
+    ) && graphTerminateBlockTo(
+        lowering: lowering,
+        targetBlockID: continuationBlockID,
+        syntaxID: syntaxID
+    ) != 0 { return 0 - 1 }
+
+    if alternativeSyntaxID >= 0 {
+        loweringSetCurrentScopeDepth(lowering: lowering, value: parentScopeDepth + 1)
+        loweringSetCurrentBlockID(lowering: lowering, value: falseBlockID)
+        loweringSetLastEffectOperationID(lowering: lowering, value: 0 - 1)
+        if graphLowerOwner(
+            lowering: lowering,
+            ownerSyntaxID: alternativeSyntaxID
+        ) != 0 { return 0 - 1 }
+        if !graphBlockIsTerminated(
+            graph: lowering.graph,
+            blockID: loweringCurrentBlockID(lowering: lowering)
+        ) && graphTerminateBlockTo(
+            lowering: lowering,
+            targetBlockID: continuationBlockID,
+            syntaxID: syntaxID
+        ) != 0 { return 0 - 1 }
+    }
+    loweringSetCurrentScopeDepth(lowering: lowering, value: parentScopeDepth)
+    loweringSetCurrentBlockID(lowering: lowering, value: continuationBlockID)
+    loweringSetLastEffectOperationID(lowering: lowering, value: 0 - 1)
+    return 0
+}
+
+function graphLowerOwner(
+    let lowering: FunctionGraphLoweringState,
+    let ownerSyntaxID: Int
+): Int {
+    state cursor: Int(0 - 1)
+    state complete: Bool(false)
+    while !complete && !graphBlockIsTerminated(
+        graph: lowering.graph,
+        blockID: loweringCurrentBlockID(lowering: lowering)
+    ) {
+        state nextSyntaxID: Int(2147483647)
+        state nextKind: Int(0)
+        state nextRow: Int(0 - 1)
+        state row: Int(0)
+        while row < lowering.revision.process.locals.syntaxIDs.count {
+            let syntaxID: Int(lowering.revision.process.locals.syntaxIDs.element(
+                index: row
+            ))
+            if lowering.revision.process.locals.ownerSyntaxIDs.element(index: row)
+                    == ownerSyntaxID
+                && syntaxID > cursor && syntaxID < nextSyntaxID {
+                nextSyntaxID: syntaxID
+                nextKind: 1
+                nextRow: row
+            }
+            row: row + 1
+        }
+        row: 0
+        while row < lowering.revision.process.executions.syntaxIDs.count {
+            let syntaxID: Int(lowering.revision.process.executions.syntaxIDs.element(
+                index: row
+            ))
+            if lowering.revision.process.executions.ownerSyntaxIDs.element(index: row)
+                    == ownerSyntaxID
+                && syntaxID > cursor && syntaxID < nextSyntaxID {
+                nextSyntaxID: syntaxID
+                nextKind: 2
+                nextRow: row
+            }
+            row: row + 1
+        }
+        row: 0
+        while row < lowering.revision.process.conditionals.syntaxIDs.count {
+            let syntaxID: Int(lowering.revision.process.conditionals.syntaxIDs.element(
+                index: row
+            ))
+            if lowering.revision.process.conditionals.ownerSyntaxIDs.element(index: row)
+                    == ownerSyntaxID
+                && syntaxID > cursor && syntaxID < nextSyntaxID {
+                nextSyntaxID: syntaxID
+                nextKind: 3
+                nextRow: row
+            }
+            row: row + 1
+        }
+        row: 0
+        while row < lowering.revision.process.assignments.syntaxIDs.count {
+            let syntaxID: Int(
+                lowering.revision.process.assignments.syntaxIDs.element(
+                    index: row
+                )
+            )
+            if lowering.revision.process.assignments.ownerSyntaxIDs.element(
+                    index: row
+                ) == ownerSyntaxID
+                && syntaxID > cursor && syntaxID < nextSyntaxID {
+                nextSyntaxID: syntaxID
+                nextKind: 5
+                nextRow: row
+            }
+            row: row + 1
+        }
+        row: 0
+        while row < lowering.revision.process.returns.syntaxIDs.count {
+            let syntaxID: Int(lowering.revision.process.returns.syntaxIDs.element(
+                index: row
+            ))
+            if lowering.revision.process.returns.ownerSyntaxIDs.element(index: row)
+                    == ownerSyntaxID
+                && syntaxID > cursor && syntaxID < nextSyntaxID {
+                nextSyntaxID: syntaxID
+                nextKind: 4
+                nextRow: row
+            }
+            row: row + 1
+        }
+        if nextKind == 0 {
+            complete: true
+        } else if nextKind == 1 {
+            if graphLowerLocalRow(lowering: lowering, localRow: nextRow) != 0 {
+                return 0 - 1
+            }
+        } else if nextKind == 2 {
+            let value: ValueID(graphLowerExpression(
+                lowering: lowering,
+                expressionSyntaxID:
+                    lowering.revision.process.executions.expressionSyntaxIDs.element(
+                        index: nextRow
+                    )
+            ))
+        } else if nextKind == 3 {
+            if graphLowerConditionalRow(
+                lowering: lowering,
+                conditionalRow: nextRow
+            ) != 0 { return 0 - 1 }
+        } else if nextKind == 5 {
+            if graphLowerAssignmentRow(
+                lowering: lowering,
+                assignmentRow: nextRow
+            ) != 0 { return 0 - 1 }
+        } else if graphLowerReturnRow(
+            lowering: lowering,
+            returnRow: nextRow
+        ) != 0 { return 0 - 1 }
+        cursor: nextSyntaxID
+    }
+    return 0
+}
+
+function graphLowerFunction(
+    let project: CompilerBProjectRevision,
+    let graph: ProgramGraph,
+    let functionID: Int
+): Int {
+    let sourceID: Int(graph.functionSourceIDs.element(index: functionID))
+    let syntaxID: Int(graph.functionSyntaxIDs.element(index: functionID))
+    let path: String(compilerBSourceSetPathAt(
+        paths: project.sourcePaths,
+        index: sourceID
+    ))
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+        source: fileManagerReadFile(path: path),
+        resolveRelationships: false
+    ))
+    let blockID: Int(programGraphAppendBlock(
+        graph: graph,
+        functionID: functionID,
+        syntaxID: syntaxID
+    ))
+    let lowering: FunctionGraphLoweringState(
+        project: project,
+        graph: graph,
+        revision: revision,
+        functionID: functionID,
+        sourceID: sourceID,
+        functionSyntaxID: syntaxID,
+        currentBlockIDs: @many(capacity: 1),
+        lastEffectOperationIDs: @many(capacity: 1),
+        currentScopeDepths: @many(capacity: 1),
+        localIdentityTokenIDs: @many(capacity: 16),
+        localValueIDs: @many(capacity: 16),
+        localStorageCodes: @many(capacity: 16),
+        localTypeIDs: @many(capacity: 16),
+        localWidths: @many(capacity: 16),
+        localScopeDepths: @many(capacity: 16)
+    )
+    lowering.currentBlockIDs.append(element: blockID)
+    lowering.lastEffectOperationIDs.append(element: 0 - 1)
+    lowering.currentScopeDepths.append(element: 0)
+    state parameterRow: Int(0)
+    while parameterRow < revision.functionParameters.functionSyntaxIDs.count {
+        if revision.functionParameters.functionSyntaxIDs.element(
+            index: parameterRow
+        ) == syntaxID {
+            let ordinal: Int(revision.functionParameters.ordinals.element(
+                index: parameterRow
+            ))
+            state signatureRow: Int(0)
+            while signatureRow < graph.functionParameterFunctionIDs.count
+                && (graph.functionParameterFunctionIDs.element(
+                        index: signatureRow
+                    ) != functionID
+                    || graph.functionParameterOrdinals.element(
+                        index: signatureRow
+                    ) != ordinal) {
+                signatureRow: signatureRow + 1
+            }
+            if signatureRow >= graph.functionParameterFunctionIDs.count {
+                return 0 - 1
+            }
+            let type: TypeID(value:
+                graph.functionParameterTypeIDs.element(index: signatureRow)
+            )
+            let value: ValueID(value:
+                graph.functionParameterValueIDs.element(index: signatureRow)
+            )
+            if graphBindLocal(
+                lowering: lowering,
+                identityTokenID:
+                    revision.functionParameters.identityTokenIDs.element(
+                        index: parameterRow
+                ),
+                value: value,
+                storage: false,
+                type: type,
+                width: graph.valueWidths.element(index: value.value)
+            ) != 0 { return 0 - 1 }
+        }
+        parameterRow: parameterRow + 1
+    }
+    let result: Int(graphLowerOwner(
+        lowering: lowering,
+        ownerSyntaxID: syntaxID
+    ))
+    if result == 0 && !graphBlockIsTerminated(
+        graph: graph,
+        blockID: loweringCurrentBlockID(lowering: lowering)
+    ) {
+        let processRow: Int(revision.process.processes.ownerSyntaxIDs.firstIndex(
+            value: syntaxID
+        ))
+        state terminalValue: ValueID(value: 0 - 1)
+        if processRow >= 0 {
+            let terminalExpressionID: Int(
+                revision.process.processes.resultExpressionSyntaxIDs.element(
+                    index: processRow
+                )
+            )
+            if terminalExpressionID >= 0 {
+                terminalValue: graphLowerExpression(
+                    lowering: lowering,
+                    expressionSyntaxID: terminalExpressionID
+                )
+            }
+        }
+        let returnID: Int(graphAppendOperation(
+            lowering: lowering,
+            kind: .return,
+            syntaxID: syntaxID,
+            declarationRow: 0 - 1,
+            targetFunctionID: 0 - 1,
+            immediate: 0,
+            width: 0
+        ))
+        if terminalValue.value >= 0 {
+            programGraphAppendOperand(
+                graph: graph,
+                operationID: returnID,
+                ordinal: 0,
+                value: terminalValue
+            )
+        }
+    }
+    lowering.currentBlockIDs.destroy()
+    lowering.lastEffectOperationIDs.destroy()
+    lowering.currentScopeDepths.destroy()
+    lowering.localIdentityTokenIDs.destroy()
+    lowering.localValueIDs.destroy()
+    lowering.localStorageCodes.destroy()
+    lowering.localTypeIDs.destroy()
+    lowering.localWidths.destroy()
+    lowering.localScopeDepths.destroy()
+    syntaxRevisionDestroy(revision: revision)
+    return result
+}
+
+function lowerProgram(
+    let project: CompilerBProjectRevision,
+    let entry: Declaration
+): ProgramLowering {
+    let graph: ProgramGraph(programGraphCreate(capacity: 32))
+    if programGraphAppendBuiltinTypes(graph: graph) != 0 {
+        let diagnostics: LoweringDiagnosticStore(
+            loweringDiagnosticStoreCreate(capacity: 1)
+        )
+        programGraphDiagnostic(
+            diagnostics: diagnostics,
+            sourceID: entry.sourceID,
+            syntaxID: entry.syntaxID,
+            message: "Could not initialize ProgramGraph types"
+        )
+        return ProgramLowering(
+            graph: graph,
+            diagnostics: diagnostics,
+            valid: false
+        )
+    }
+    let entryFunctionID: Int(graphEnsureFunction(
+        project: project,
+        graph: graph,
+        declarationRow: entry.row
+    ))
+    if entryFunctionID < 0 {
+        let diagnostics: LoweringDiagnosticStore(
+            loweringDiagnosticStoreCreate(capacity: 1)
+        )
+        programGraphDiagnostic(
+            diagnostics: diagnostics,
+            sourceID: entry.sourceID,
+            syntaxID: entry.syntaxID,
+            message: "Could not discover the entry Function"
+        )
+        return ProgramLowering(
+            graph: graph,
+            diagnostics: diagnostics,
+            valid: false
+        )
+    }
+    state functionID: Int(0)
+    while functionID < graph.functionSourceIDs.count {
+        if graph.functionExternCodes.element(index: functionID) == 0
+            && graph.functionEntryBlockIDs.element(index: functionID) < 0 {
+            if graphLowerFunction(
+                project: project,
+                graph: graph,
+                functionID: functionID
+            ) != 0 {
+                let diagnostics: LoweringDiagnosticStore(
+            loweringDiagnosticStoreCreate(capacity: 1)
+        )
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: graph.functionSourceIDs.element(
+                        index: functionID
+                    ),
+                    syntaxID: graph.functionSyntaxIDs.element(
+                        index: functionID
+                    ),
+                    message: "Could not lower the reachable Function"
+                )
+                return ProgramLowering(
+                    graph: graph,
+                    diagnostics: diagnostics,
+                    valid: false
+                )
+            }
+        }
+        functionID: functionID + 1
+    }
+    return validateProgramGraph(graph: graph)
+}

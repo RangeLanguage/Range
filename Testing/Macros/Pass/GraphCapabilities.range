@@ -6,14 +6,14 @@ enum GraphRole {
 }
 macro syntax(): Declaration -> Void {}
 macro graph(
-    _ role: GraphRole,
-    _ additionalRole: GraphRole?
+    let role: GraphRole,
+    let additionalRole: GraphRole?
 ): Construct -> Void {
     #environment.graph.addNode(role: role, additionalRole: additionalRole)
 }
 
 compilerSourceFile\trole=project\tpath=Project/SyntaxFamily.range
-@graph(.declaration, .application)
+@graph(role: .declaration, additionalRole: .application)
 construct SyntaxFamily {
     @syntax
     construct Declaration {}
@@ -22,7 +22,7 @@ construct SyntaxFamily {
     construct Application {}
 }
 
-@graph(.declaration)
+@graph(role: .declaration)
 construct SyntaxlessFamily {
     construct Declaration {}
 }

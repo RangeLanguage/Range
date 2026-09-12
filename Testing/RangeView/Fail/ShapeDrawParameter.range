@@ -1,6 +1,6 @@
 @shape
 construct ParameterizedDrawShape {
-    function draw(value: Int): ShapeRepresentation {
+    function draw(let value: Int): ShapeRepresentation {
         return ShapeRepresentation()
     }
 }

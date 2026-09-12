@@ -3,12 +3,12 @@ enum CompilerStep {
     case end
 }
 
-function makeStep(value: Int): CompilerStep {
+function makeStep(let value: Int): CompilerStep {
     let step: CompilerStep(.value(value: value))
     return step
 }
 
-function readStep(step: CompilerStep): Int {
+function readStep(let step: CompilerStep): Int {
     switch step {
     case .value(value):
         return value

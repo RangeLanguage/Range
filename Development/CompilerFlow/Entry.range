@@ -1,0 +1,64 @@
+// Architecture draft, not an executable compiler or a registered source.
+// Proposed APIs and their implementation status are in README.md beside this file.
+// CompilationGraph is the complete source/application graph, not today's
+// ProgramGraph of lowered machine operations. Names here are provisional.
+
+function compileDirectory(
+    let directory: URL,
+    let core: URL,
+    let output: URL
+): Artifact {
+    // This state belongs to one invocation. No process-global project/main slots.
+    state graph: CompilationGraph(openCompilation())
+    let artifact: Artifact(compileInto(
+        graph: graph,
+        directory: directory,
+        core: core,
+        output: output
+    ))
+    reportCompilationDiagnostics(graph: graph)
+    closeCompilation(graph: graph)
+    return artifact
+}
+
+function compileInto(
+    let graph: CompilationGraph,
+    let directory: URL,
+    let core: URL,
+    let output: URL
+): Artifact {
+    // Read Core with the bootstrap grammar and establish its syntax definitions.
+    // Retain nodes, bodies, source locations, and declaration/application edges.
+    if collectCore(graph: graph, directory: core) != 0 {
+        return Artifact(url: output, status: 65)
+    }
+    if collectDirectory(graph: graph, directory: directory) != 0 {
+        return Artifact(url: output, status: 65)
+    }
+
+    // Resolve and evaluate the dependencies of this build request. This runs
+    // compile-time bodies, not the runtime body of the program being compiled.
+    // Success means the relevant queries are complete, not merely empty today.
+    if prepareExecutable(graph: graph, directory: directory) != 0 {
+        return Artifact(url: output, status: 65)
+    }
+
+    // Ordinary Range policy queries the graph for the requested build scope,
+    // target, and entry. The plan contains references/results from that graph.
+    // Missing requirements are checked here even if no macro was applied.
+    let plan: ExecutablePlan(requireExecutablePlan(
+        graph: graph,
+        directory: directory
+    ))
+    if !plan.valid {
+        return Artifact(url: output, status: 65)
+    }
+
+    // Derived control flow and machine operations retain source identities.
+    // This operation must consume the graph; it must not reparse source text.
+    let program: ProgramLowering(lowerExecutable(graph: graph, plan: plan))
+    if !program.valid {
+        return Artifact(url: output, status: 65)
+    }
+    return writeExecutable(program: program, plan: plan, output: output)
+}

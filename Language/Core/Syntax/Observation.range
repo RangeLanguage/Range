@@ -1,20 +1,20 @@
-function compilerBSyntaxSignalPreviousIdentity(
-    signal: CompilerBSyntaxDeltaSignal
+function syntaxSignalPreviousIdentity(
+    let signal: SyntaxDeltaSignal
 ): SyntaxNodeID {
     if signal.revision == .previous { return signal.identity }
     return signal.counterpart
 }
 
-function compilerBSyntaxSignalCurrentIdentity(
-    signal: CompilerBSyntaxDeltaSignal
+function syntaxSignalCurrentIdentity(
+    let signal: SyntaxDeltaSignal
 ): SyntaxNodeID {
     if signal.revision == .current { return signal.identity }
     return signal.counterpart
 }
 
 function compilerBRenderSyntaxObservationHalf(
-    label: String,
-    half: CompilerBDeclarationObservationHalf
+    let label: String,
+    let half: CompilerBDeclarationObservationHalf
 ): String {
     if half.present {
         return "\t\(label)=present\t\(label)Name=\(half.name)\t\(label)Body=\(half.body.value)"
@@ -23,25 +23,25 @@ function compilerBRenderSyntaxObservationHalf(
 }
 
 function compilerBRenderSyntaxSignalObservation(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision,
-    signal: CompilerBSyntaxDeltaSignal
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let signal: SyntaxDeltaSignal
 ): String {
     let before: CompilerBDeclarationObservationHalf(
         compilerBDeclarationObservationInRevision(
             revision: previous,
-            identity: compilerBSyntaxSignalPreviousIdentity(signal: signal)
+            identity: syntaxSignalPreviousIdentity(signal: signal)
         )
     )
     let after: CompilerBDeclarationObservationHalf(
         compilerBDeclarationObservationInRevision(
             revision: current,
-            identity: compilerBSyntaxSignalCurrentIdentity(signal: signal)
+            identity: syntaxSignalCurrentIdentity(signal: signal)
         )
     )
     state kind: String(after.kind)
     if !after.present { kind: before.kind }
-    state output: String("observation\tchange=\(compilerBSyntaxDeltaKindName(kind: signal.change))\tidentity=\(signal.identity.value)")
+    state output: String("observation\tchange=\(syntaxDeltaKindName(kind: signal.change))\tidentity=\(signal.identity.value)")
     output.append(text: compilerBRenderSyntaxObservationHalf(label: "before", half: before))
     output.append(text: compilerBRenderSyntaxObservationHalf(label: "after", half: after))
     output.append(text: "\ttype=\(kind)\n")
@@ -49,9 +49,9 @@ function compilerBRenderSyntaxSignalObservation(
 }
 
 function compilerBRenderSyntaxDelta(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision,
-    delta: CompilerBSyntaxDelta
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let delta: SyntaxDelta
 ): String {
     state output: String("")
     state row: Int(0)
@@ -59,7 +59,7 @@ function compilerBRenderSyntaxDelta(
         output.append(text: compilerBRenderSyntaxSignalObservation(
             previous: previous,
             current: current,
-            signal: compilerBSyntaxDeltaSignal(delta: delta, row: row)
+            signal: syntaxDeltaSignal(delta: delta, row: row)
         ))
         row: row + 1
     }

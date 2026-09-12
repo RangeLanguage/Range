@@ -22,7 +22,7 @@ construct Let {
     let identity: Identity
 }
 
-macro validEncodeBody(properties: Array<Let>) -> Int {
+macro validEncodeBody(let properties: Array<Let>) -> Int {
     if properties.count == 2 {
         #environment {
             let encodedProperties: Int(2)
@@ -31,7 +31,7 @@ macro validEncodeBody(properties: Array<Let>) -> Int {
     return properties.count
 }
 
-macro invalidDecodeBody(properties: Array<Let>) -> Int {
+macro invalidDecodeBody(let properties: Array<Let>) -> Int {
     if properties.count == 2 {
         #environment {
             break
@@ -47,12 +47,12 @@ macro codable(): Construct {
 
     #environment {
         extension #environment.target.Declaration.identifier {
-            function encode(to encoder: Encoder): Int {
+            function encode(let encoder: Encoder): Int {
                 @validEncodeBody(properties: #properties)
                 return 0
             }
 
-            function decode(from decoder: Decoder): Int {
+            function decode(let decoder: Decoder): Int {
                 @invalidDecodeBody(properties: #properties)
                 return 0
             }

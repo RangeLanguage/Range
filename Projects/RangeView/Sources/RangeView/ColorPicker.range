@@ -7,7 +7,7 @@ construct ColorPicker {
 
         Stack(.vertical, spacing: 10) {
             Rectangle()
-              .fill(color)
+              .fill(color: color)
               .aspectRatio()
 
             color.members { member in

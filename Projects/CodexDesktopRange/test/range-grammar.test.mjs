@@ -46,7 +46,7 @@ test("Range grammar mirrors the Zed Codability capture colors", async () => {
     langs: [grammar],
   });
   const code = [
-    "macro many(count: Int?): @member {",
+    "macro many(let count: Int?): @member {",
     "  let element: #environment.target.Declaration.type",
     "  if #environment.target.Application.values.count != count {",
     '    @diagnostic("negative")',

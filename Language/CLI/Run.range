@@ -1,0 +1,63 @@
+function projectBuildOutput(let project: Project): URL {
+    let rangeDirectory: URL(
+        project.root.appending(component: ".range")
+    )
+    let buildDirectory: URL(
+        rangeDirectory.appending(component: "build")
+    )
+    return buildDirectory.appending(component: project.identity)
+}
+
+function buildProject(let project: Project, let output: URL): Artifact {
+    if project.root.string() == "" {
+        print(message: "range: unknown project: \(project.identity)")
+        return Artifact(url: output, status: 66)
+    }
+
+    let rangeDirectory: URL(project.root.appending(component: ".range"))
+    let buildDirectory: URL(rangeDirectory.appending(component: "build"))
+    directoryPrimitiveCreate(path: rangeDirectory.string())
+    directoryPrimitiveCreate(path: buildDirectory.string())
+
+    let revision: Revision(compileProject(
+        project: project,
+        demand: CompilationDemand(
+            artifact: .executable
+        )
+    ))
+    let artifact: Artifact(emitExecutable(
+        revision: revision,
+        output: output
+    ))
+    if compilerBProjectRevisionDestroy(revision: revision.compiler) != 0 {
+        return Artifact(url: output, status: 70)
+    }
+    return artifact
+}
+
+function compileProjectCommand(let project: Project, let output: URL): Int {
+    let artifact: Artifact(buildProject(project: project, output: output))
+    if artifact.status == 0 { print(message: artifact.url.string()) }
+    return artifact.status
+}
+
+function runProject(let project: Project, let arguments: @many String): Int {
+    let artifact: Artifact(buildProject(
+        project: project,
+        output: projectBuildOutput(project: project)
+    ))
+    state result: Int(artifact.status)
+    if result == 0 {
+        state process: ProcessPlan(processPlan(executable: artifact.url.string()))
+        state index: Int(0)
+        while index < arguments.count {
+            process: processPlanAppendingArgument(
+                plan: process,
+                argument: arguments.element(index: index)
+            )
+            index: index + 1
+        }
+        result: processPlanRun(plan: process)
+    }
+    return result
+}

@@ -1,4 +1,4 @@
-macro upperBounded(maximum: Value): @member -> Value {
+macro upperBounded(let maximum: Value): @member -> Value {
   let value: #environment.target.Application.value
 
   if value > maximum {

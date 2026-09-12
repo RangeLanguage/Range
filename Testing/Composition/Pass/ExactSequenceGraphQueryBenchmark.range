@@ -7,12 +7,12 @@ construct Identity {
     let second: Int
 }
 
-function appendIdentityWords(words: Buffer<Int>, first: Int, second: Int): Int {
+function appendIdentityWords(let words: Buffer<Int>, let first: Int, let second: Int): Int {
     if words.append(element: first) != 0 { return 0 - 1 }
     return words.append(element: second)
 }
 
-function buildRelationshipRows(count: Int): Buffer<Int> {
+function buildRelationshipRows(let count: Int): Buffer<Int> {
     let rows: Buffer<Int>(bufferCreateInt(capacity: count * 8))
     state row: Int(0)
     while row < count {
@@ -25,7 +25,7 @@ function buildRelationshipRows(count: Int): Buffer<Int> {
     return rows
 }
 
-function buildCompositionQueryIndex(count: Int): CompilerCompositionExactIndex {
+function buildCompositionQueryIndex(let count: Int): CompilerCompositionExactIndex {
     let index: CompilerCompositionExactIndex(compilerCompositionExactIndexCreate(estimatedCompositionCount: count))
     state row: Int(0)
     while row < count {
@@ -45,7 +45,7 @@ function buildCompositionQueryIndex(count: Int): CompilerCompositionExactIndex {
     return index
 }
 
-function relationshipScan(rows: Buffer<Int>, count: Int, iterations: Int): Int {
+function relationshipScan(let rows: Buffer<Int>, let count: Int, let iterations: Int): Int {
     state iteration: Int(0)
     state matches: Int(0)
     while iteration < iterations {
@@ -67,7 +67,7 @@ function relationshipScan(rows: Buffer<Int>, count: Int, iterations: Int): Int {
     return matches
 }
 
-function compositionScan(index: CompilerCompositionExactIndex, queryWords: Buffer<Int>, iterations: Int): Int {
+function compositionScan(let index: CompilerCompositionExactIndex, let queryWords: Buffer<Int>, let iterations: Int): Int {
     state iteration: Int(0)
     state matches: Int(0)
     while iteration < iterations {
@@ -83,7 +83,7 @@ function compositionScan(index: CompilerCompositionExactIndex, queryWords: Buffe
     return matches
 }
 
-function compositionIndexedLookup(index: CompilerCompositionExactIndex, queryWords: Buffer<Int>, iterations: Int): Int {
+function compositionIndexedLookup(let index: CompilerCompositionExactIndex, let queryWords: Buffer<Int>, let iterations: Int): Int {
     state iteration: Int(0)
     state matches: Int(0)
     while iteration < iterations {

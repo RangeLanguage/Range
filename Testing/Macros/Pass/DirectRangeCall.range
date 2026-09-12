@@ -1,6 +1,6 @@
 compilerMacroSnapshot
 compilerSourceFile\trole=core\tpath=Core/Macro/DirectCall.range
-function macroIncrement(value: Int): Int {
+function macroIncrement(let value: Int): Int {
     return value + 1
 }
 

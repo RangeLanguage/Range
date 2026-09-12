@@ -1,0 +1,4 @@
+function start(): Int {
+    let values: @many Int
+    return values.element(index: 0)
+}

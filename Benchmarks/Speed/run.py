@@ -1180,7 +1180,7 @@ def cases() -> list[BenchmarkCase]:
                         acc: (acc + i + 1) % 1000003
                         i: i + 1
                     }}
-                    return ((acc + stringLength(value: text)) % 1000003) % 251
+                    return ((acc + text.count) % 1000003) % 251
                 }}
             """,
         ),

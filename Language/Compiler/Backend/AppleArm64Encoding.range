@@ -1,0 +1,125 @@
+construct AppleArm64Encoding {
+    let object: RelocatableObject
+    let textSectionIndex: Int
+
+    @many
+    state functionOffsets: Int
+
+    @many
+    state blockOffsets: Int
+
+    @many
+    state fixupOffsets: Int
+
+    @many
+    state fixupKindCodes: Int
+
+    @many
+    state fixupTargetIDs: Int
+
+    @many state validCodes: Int
+
+    state diagnostic: String
+}
+
+function appleArm64PowerOfTwo(let exponent: Int): Int {
+    state value: Int(1)
+    state index: Int(0)
+    while index < exponent {
+        value: value * 2
+        index: index + 1
+    }
+    return value
+}
+
+function appleArm64Encoding(
+    let functionCount: Int,
+    let blockCount: Int
+): AppleArm64Encoding {
+    let object: RelocatableObject(relocatableObject(
+        sectionCapacity: 4,
+        symbolCapacity: functionCount * 2 + 16,
+        relocationCapacity: 32,
+        entrySymbol: "_main"
+    ))
+    let textIndex: Int(objectAppendSection(
+        object: object,
+        segmentName: "__TEXT",
+        sectionName: "__text",
+        kind: .text,
+        alignment: 4,
+        bytes: binary(capacity: 4096),
+        zeroFillSize: unsigned64FromInt(value: 0)
+    ))
+    state functionOffsets: @many(capacity: functionCount)
+    state functionID: Int(0)
+    while functionID < functionCount {
+        functionOffsets.append(element: 0 - 1)
+        functionID: functionID + 1
+    }
+    state blockOffsets: @many(capacity: blockCount)
+    state blockID: Int(0)
+    while blockID < blockCount {
+        blockOffsets.append(element: 0 - 1)
+        blockID: blockID + 1
+    }
+    let encoding: AppleArm64Encoding(AppleArm64Encoding(
+        object: object,
+        textSectionIndex: textIndex,
+        functionOffsets: functionOffsets,
+        blockOffsets: blockOffsets,
+        fixupOffsets: @many(capacity: 64),
+        fixupKindCodes: @many(capacity: 64),
+        fixupTargetIDs: @many(capacity: 64),
+        validCodes: @many(capacity: 1),
+        diagnostic: ""
+    ))
+    state validCode: Int(0)
+    if textIndex >= 0 { validCode: 1 }
+    encoding.validCodes.append(element: validCode)
+    return encoding
+}
+
+function appleArm64Valid(let encoding: AppleArm64Encoding): Bool {
+    return encoding.validCodes.element(index: 0) == 1
+}
+
+function appleArm64Invalidate(let encoding: AppleArm64Encoding): Int {
+    return encoding.validCodes.update(element: 0, index: 0)
+}
+
+function appleArm64Text(let encoding: AppleArm64Encoding): Binary {
+    return encoding.object.sections.element(
+        index: encoding.textSectionIndex
+    ).bytes
+}
+
+function appleArm64TextSize(let encoding: AppleArm64Encoding): Int {
+    let text: Binary(appleArm64Text(encoding: encoding))
+    return text.bytes.count
+}
+
+function appleArm64Fail(
+    let encoding: AppleArm64Encoding,
+    let diagnostic: String
+): Int {
+    appleArm64Invalidate(encoding: encoding)
+    encoding.diagnostic.append(text: diagnostic)
+    return 0 - 1
+}
+
+function appleArm64EmitWord(
+    let encoding: AppleArm64Encoding,
+    let word: Int
+): Int {
+    if word < 0 || word >= unsigned32Limit() {
+        return appleArm64Fail(
+            encoding: encoding,
+            diagnostic: "ARM64 instruction word overflow"
+        )
+    }
+    return binaryAppendUInt32LE(
+        output: appleArm64Text(encoding: encoding),
+        value: word
+    )
+}

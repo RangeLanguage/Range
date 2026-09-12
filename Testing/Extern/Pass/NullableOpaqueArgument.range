@@ -2,7 +2,7 @@
 construct ForeignAllocation {}
 
 @extern
-function free(pointer: ForeignAllocation): Void
+function free(let pointer: ForeignAllocation): Void
 
 @main {
     free(pointer: nil)

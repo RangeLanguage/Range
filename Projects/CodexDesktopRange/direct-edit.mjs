@@ -80,6 +80,7 @@ function findEditableFiles() {
     /^local-conversation-page-.*\.js$/,
     /^thread-app-shell-chrome-.*\.js$/,
     /^review-file-tree-pane-.*\.js$/,
+    /^review-file-tree-side-pane-.*\.js$/,
     /^home-composer-mode-toggle-.*\.js$/,
     /^composer-action-bar-run-location-dropdown-.*\.js$/,
     /^composer-utility-bar-.*\.js$/,

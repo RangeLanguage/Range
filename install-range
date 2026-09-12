@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+installer_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+manifest="${RANGE_DISTRIBUTION_MANIFEST:-$installer_root/Distribution/Manifest.json}"
+install_root="${RANGE_INSTALL_ROOT:-$HOME/.local/share/range}"
+bin_root="${RANGE_BIN_ROOT:-$HOME/.local/bin}"
+platform="${RANGE_INSTALL_PLATFORM:-}"
+
+fail() {
+    local message="$1"
+    local status="${2:-69}"
+    echo "install-range: $message" >&2
+    exit "$status"
+}
+
+if [[ -z "$platform" ]]; then
+    system="$(uname -s)"
+    architecture="$(uname -m)"
+    if [[ "$system" == "Darwin" && "$architecture" == "arm64" ]]; then
+        platform="darwin-arm64"
+    else
+        platform="unsupported"
+    fi
+fi
+
+[[ "$platform" == "darwin-arm64" ]] \
+    || fail "unsupported platform: $(uname -s) $(uname -m)"
+[[ -f "$manifest" ]] || fail "distribution manifest does not exist: $manifest" 66
+
+artifact_path="$(/usr/bin/plutil -extract "artifacts.$platform.path" raw -o - "$manifest" 2>/dev/null || true)"
+artifact_hash="$(/usr/bin/plutil -extract "artifacts.$platform.sha256" raw -o - "$manifest" 2>/dev/null || true)"
+if [[ -z "$artifact_path" || -z "$artifact_hash" ]]; then
+    fail "no native Range CLI artifact is published for $platform"
+fi
+if [[ "$artifact_path" != /* ]]; then
+    artifact_path="$(cd "$(dirname "$manifest")" && pwd)/$artifact_path"
+fi
+[[ -f "$artifact_path" ]] || fail "artifact does not exist: $artifact_path" 66
+
+actual_hash="$(/usr/bin/shasum -a 256 "$artifact_path" | /usr/bin/awk '{print $1}')"
+[[ "$actual_hash" == "$artifact_hash" ]] \
+    || fail "artifact checksum mismatch" 65
+
+destination_directory="$install_root/bin"
+destination="$destination_directory/range"
+mkdir -p "$destination_directory" "$bin_root"
+temporary="$destination_directory/.range.$$"
+link_temporary="$bin_root/.range.$$"
+cleanup() {
+    rm -f "$temporary" "$link_temporary"
+}
+trap cleanup EXIT
+
+cp "$artifact_path" "$temporary"
+chmod 755 "$temporary"
+mv -f "$temporary" "$destination"
+ln -s "$destination" "$link_temporary"
+mv -f "$link_temporary" "$bin_root/range"
+
+echo "install-range: installed $destination"
+if [[ ":$PATH:" != *":$bin_root:"* ]]; then
+    echo "install-range: add $bin_root to PATH" >&2
+fi

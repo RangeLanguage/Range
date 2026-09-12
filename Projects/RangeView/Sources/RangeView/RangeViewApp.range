@@ -10,8 +10,8 @@ construct RangeViewApp {
     }
 
     derived body: @view {
-        NavigationStack {
+        NavigationStack(root: {
             RangeViewHome()
-        }
+        })
     }
 }

@@ -1,14 +1,14 @@
-function compilerBSyntaxDeltaKindAddedCode(): Int { return 1 }
-function compilerBSyntaxDeltaKindRemovedCode(): Int { return 2 }
-function compilerBSyntaxDeltaKindChangedCode(): Int { return 3 }
+function syntaxDeltaKindAddedCode(): Int { return 1 }
+function syntaxDeltaKindRemovedCode(): Int { return 2 }
+function syntaxDeltaKindChangedCode(): Int { return 3 }
 
-function compilerBSyntaxDeltaKindFromCode(code: Int): CompilerBSyntaxDeltaKind {
-    if code == compilerBSyntaxDeltaKindAddedCode() { return .added }
-    if code == compilerBSyntaxDeltaKindRemovedCode() { return .removed }
+function syntaxDeltaKindFromCode(let code: Int): SyntaxDeltaKind {
+    if code == syntaxDeltaKindAddedCode() { return .added }
+    if code == syntaxDeltaKindRemovedCode() { return .removed }
     return .changed
 }
 
-function compilerBSyntaxDeltaKindName(kind: CompilerBSyntaxDeltaKind): String {
+function syntaxDeltaKindName(let kind: SyntaxDeltaKind): String {
     if kind == .added { return "added" }
     if kind == .removed { return "removed" }
     return "changed"
@@ -17,23 +17,23 @@ function compilerBSyntaxDeltaKindName(kind: CompilerBSyntaxDeltaKind): String {
 function compilerBGraphRevisionPreviousCode(): Int { return 1 }
 function compilerBGraphRevisionCurrentCode(): Int { return 2 }
 
-function compilerBGraphRevisionFromCode(code: Int): CompilerBGraphRevision {
+function compilerBGraphRevisionFromCode(let code: Int): CompilerBGraphRevision {
     if code == compilerBGraphRevisionPreviousCode() { return .previous }
     return .current
 }
 
-function compilerBGraphRevisionName(revision: CompilerBGraphRevision): String {
+function compilerBGraphRevisionName(let revision: CompilerBGraphRevision): String {
     if revision == .previous { return "previous" }
     return "current"
 }
 
 function compilerBSourceRangesEqual(
-    leftSource: String,
-    leftStart: Int,
-    leftEnd: Int,
-    rightSource: String,
-    rightStart: Int,
-    rightEnd: Int
+    let leftSource: String,
+    let leftStart: Int,
+    let leftEnd: Int,
+    let rightSource: String,
+    let rightStart: Int,
+    let rightEnd: Int
 ): Bool {
     let count: Int(leftEnd - leftStart)
     if count != rightEnd - rightStart { return false }
@@ -46,8 +46,8 @@ function compilerBSourceRangesEqual(
     return true
 }
 
-function compilerBSyntaxDeltaStoreCreate(capacity: Int): CompilerBSyntaxDeltaStore {
-    return CompilerBSyntaxDeltaStore(
+function syntaxDeltaStoreCreate(let capacity: Int): SyntaxDeltaStore {
+    return SyntaxDeltaStore(
         kinds: @many(capacity: capacity),
         revisions: @many(capacity: capacity),
         identities: @many(capacity: capacity),
@@ -55,12 +55,12 @@ function compilerBSyntaxDeltaStoreCreate(capacity: Int): CompilerBSyntaxDeltaSto
     )
 }
 
-function compilerBSyntaxDeltaStoreAppend(
-    store: CompilerBSyntaxDeltaStore,
-    kind: Int,
-    revision: Int,
-    identity: Int,
-    counterpart: Int
+function syntaxDeltaStoreAppend(
+    let store: SyntaxDeltaStore,
+    let kind: Int,
+    let revision: Int,
+    let identity: Int,
+    let counterpart: Int
 ): Int {
     if store.kinds.append(element: kind) != 0 { return 0 - 1 }
     if store.revisions.append(element: revision) != 0 { return 0 - 1 }
@@ -68,7 +68,7 @@ function compilerBSyntaxDeltaStoreAppend(
     return store.counterparts.append(element: counterpart)
 }
 
-function compilerBSyntaxDeltaStoreDestroy(store: CompilerBSyntaxDeltaStore): Int {
+function syntaxDeltaStoreDestroy(let store: SyntaxDeltaStore): Int {
     state status: Int(0)
     if store.kinds.destroy() != 0 { status: 0 - 1 }
     if store.revisions.destroy() != 0 { status: 0 - 1 }
@@ -77,12 +77,12 @@ function compilerBSyntaxDeltaStoreDestroy(store: CompilerBSyntaxDeltaStore): Int
     return status
 }
 
-function compilerBSyntaxDeltaSignal(
-    delta: CompilerBSyntaxDelta,
-    row: Int
-): CompilerBSyntaxDeltaSignal {
-    return CompilerBSyntaxDeltaSignal(
-        change: compilerBSyntaxDeltaKindFromCode(
+function syntaxDeltaSignal(
+    let delta: SyntaxDelta,
+    let row: Int
+): SyntaxDeltaSignal {
+    return SyntaxDeltaSignal(
+        change: syntaxDeltaKindFromCode(
             code: delta.changes.kinds.element(index: row)
         ),
         revision: compilerBGraphRevisionFromCode(
@@ -98,9 +98,9 @@ function compilerBSyntaxDeltaSignal(
 }
 
 function compilerBDeclarationIdentityToken(
-    revision: CompilerBSyntaxRevision,
-    declarations: CompilerBDeclarationFacetStore,
-    row: Int
+    let revision: SyntaxRevision,
+    let declarations: CompilerBDeclarationFacetStore,
+    let row: Int
 ): CompilerBToken {
     return compilerBRetainedToken(
         store: revision.tokens,
@@ -109,11 +109,11 @@ function compilerBDeclarationIdentityToken(
 }
 
 function compilerBDeclarationFacetMatchingRow(
-    sourceRevision: CompilerBSyntaxRevision,
-    sourceDeclarations: CompilerBDeclarationFacetStore,
-    sourceRow: Int,
-    candidateRevision: CompilerBSyntaxRevision,
-    candidateDeclarations: CompilerBDeclarationFacetStore
+    let sourceRevision: SyntaxRevision,
+    let sourceDeclarations: CompilerBDeclarationFacetStore,
+    let sourceRow: Int,
+    let candidateRevision: SyntaxRevision,
+    let candidateDeclarations: CompilerBDeclarationFacetStore
 ): Int {
     let sourceToken: CompilerBToken(compilerBDeclarationIdentityToken(
         revision: sourceRevision,
@@ -141,38 +141,38 @@ function compilerBDeclarationFacetMatchingRow(
 }
 
 function compilerBDeclarationFacetRowsEqual(
-    previous: CompilerBSyntaxRevision,
-    previousDeclarations: CompilerBDeclarationFacetStore,
-    previousRow: Int,
-    current: CompilerBSyntaxRevision,
-    currentDeclarations: CompilerBDeclarationFacetStore,
-    currentRow: Int
+    let previous: SyntaxRevision,
+    let previousDeclarations: CompilerBDeclarationFacetStore,
+    let previousRow: Int,
+    let current: SyntaxRevision,
+    let currentDeclarations: CompilerBDeclarationFacetStore,
+    let currentRow: Int
 ): Bool {
-    let previousNodeRow: Int(compilerBSyntaxNodeRowForID(
+    let previousNodeRow: Int(syntaxNodeRowForID(
         store: previous.nodes,
         syntaxID: previousDeclarations.syntaxIDs.element(index: previousRow)
     ))
-    let currentNodeRow: Int(compilerBSyntaxNodeRowForID(
+    let currentNodeRow: Int(syntaxNodeRowForID(
         store: current.nodes,
         syntaxID: currentDeclarations.syntaxIDs.element(index: currentRow)
     ))
     if previousNodeRow < 0 || currentNodeRow < 0 { return false }
     return compilerBSourceRangesEqual(
         leftSource: previous.source,
-        leftStart: compilerBSyntaxNodeStart(revision: previous, row: previousNodeRow),
-        leftEnd: compilerBSyntaxNodeEnd(revision: previous, row: previousNodeRow),
+        leftStart: syntaxNodeStart(revision: previous, row: previousNodeRow),
+        leftEnd: syntaxNodeEnd(revision: previous, row: previousNodeRow),
         rightSource: current.source,
-        rightStart: compilerBSyntaxNodeStart(revision: current, row: currentNodeRow),
-        rightEnd: compilerBSyntaxNodeEnd(revision: current, row: currentNodeRow)
+        rightStart: syntaxNodeStart(revision: current, row: currentNodeRow),
+        rightEnd: syntaxNodeEnd(revision: current, row: currentNodeRow)
     )
 }
 
-function compilerBSyntaxDifferenceRemovedFacet(
-    previous: CompilerBSyntaxRevision,
-    previousDeclarations: CompilerBDeclarationFacetStore,
-    current: CompilerBSyntaxRevision,
-    currentDeclarations: CompilerBDeclarationFacetStore,
-    changes: CompilerBSyntaxDeltaStore
+function syntaxDifferenceRemovedFacet(
+    let previous: SyntaxRevision,
+    let previousDeclarations: CompilerBDeclarationFacetStore,
+    let current: SyntaxRevision,
+    let currentDeclarations: CompilerBDeclarationFacetStore,
+    let changes: SyntaxDeltaStore
 ): Int {
     state count: Int(0)
     state row: Int(0)
@@ -184,9 +184,9 @@ function compilerBSyntaxDifferenceRemovedFacet(
             candidateRevision: current,
             candidateDeclarations: currentDeclarations
         ) < 0 {
-            if compilerBSyntaxDeltaStoreAppend(
+            if syntaxDeltaStoreAppend(
                 store: changes,
-                kind: compilerBSyntaxDeltaKindRemovedCode(),
+                kind: syntaxDeltaKindRemovedCode(),
                 revision: compilerBGraphRevisionPreviousCode(),
                 identity: previousDeclarations.syntaxIDs.element(index: row),
                 counterpart: 0 - 1
@@ -198,12 +198,12 @@ function compilerBSyntaxDifferenceRemovedFacet(
     return count
 }
 
-function compilerBSyntaxDifferenceChangedFacet(
-    previous: CompilerBSyntaxRevision,
-    previousDeclarations: CompilerBDeclarationFacetStore,
-    current: CompilerBSyntaxRevision,
-    currentDeclarations: CompilerBDeclarationFacetStore,
-    changes: CompilerBSyntaxDeltaStore
+function syntaxDifferenceChangedFacet(
+    let previous: SyntaxRevision,
+    let previousDeclarations: CompilerBDeclarationFacetStore,
+    let current: SyntaxRevision,
+    let currentDeclarations: CompilerBDeclarationFacetStore,
+    let changes: SyntaxDeltaStore
 ): Int {
     state count: Int(0)
     state row: Int(0)
@@ -224,9 +224,9 @@ function compilerBSyntaxDifferenceChangedFacet(
                 currentDeclarations: currentDeclarations,
                 currentRow: currentRow
             ) {
-                if compilerBSyntaxDeltaStoreAppend(
+                if syntaxDeltaStoreAppend(
                     store: changes,
-                    kind: compilerBSyntaxDeltaKindChangedCode(),
+                    kind: syntaxDeltaKindChangedCode(),
                     revision: compilerBGraphRevisionCurrentCode(),
                     identity: currentDeclarations.syntaxIDs.element(index: currentRow),
                     counterpart: previousDeclarations.syntaxIDs.element(index: row)
@@ -239,12 +239,12 @@ function compilerBSyntaxDifferenceChangedFacet(
     return count
 }
 
-function compilerBSyntaxDifferenceAddedFacet(
-    previous: CompilerBSyntaxRevision,
-    previousDeclarations: CompilerBDeclarationFacetStore,
-    current: CompilerBSyntaxRevision,
-    currentDeclarations: CompilerBDeclarationFacetStore,
-    changes: CompilerBSyntaxDeltaStore
+function syntaxDifferenceAddedFacet(
+    let previous: SyntaxRevision,
+    let previousDeclarations: CompilerBDeclarationFacetStore,
+    let current: SyntaxRevision,
+    let currentDeclarations: CompilerBDeclarationFacetStore,
+    let changes: SyntaxDeltaStore
 ): Int {
     state count: Int(0)
     state row: Int(0)
@@ -256,9 +256,9 @@ function compilerBSyntaxDifferenceAddedFacet(
             candidateRevision: previous,
             candidateDeclarations: previousDeclarations
         ) < 0 {
-            if compilerBSyntaxDeltaStoreAppend(
+            if syntaxDeltaStoreAppend(
                 store: changes,
-                kind: compilerBSyntaxDeltaKindAddedCode(),
+                kind: syntaxDeltaKindAddedCode(),
                 revision: compilerBGraphRevisionCurrentCode(),
                 identity: currentDeclarations.syntaxIDs.element(index: row),
                 counterpart: 0 - 1
@@ -270,12 +270,12 @@ function compilerBSyntaxDifferenceAddedFacet(
     return count
 }
 
-function compilerBSyntaxDifferenceRemoved(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision,
-    changes: CompilerBSyntaxDeltaStore
+function syntaxDifferenceRemoved(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let changes: SyntaxDeltaStore
 ): Int {
-    let functions: Int(compilerBSyntaxDifferenceRemovedFacet(
+    let functions: Int(syntaxDifferenceRemovedFacet(
         previous: previous,
         previousDeclarations: previous.functionDeclarations,
         current: current,
@@ -283,7 +283,7 @@ function compilerBSyntaxDifferenceRemoved(
         changes: changes
     ))
     if functions < 0 { return 0 - 1 }
-    let constructs: Int(compilerBSyntaxDifferenceRemovedFacet(
+    let constructs: Int(syntaxDifferenceRemovedFacet(
         previous: previous,
         previousDeclarations: previous.constructDeclarations,
         current: current,
@@ -294,12 +294,12 @@ function compilerBSyntaxDifferenceRemoved(
     return functions + constructs
 }
 
-function compilerBSyntaxDifferenceChanged(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision,
-    changes: CompilerBSyntaxDeltaStore
+function syntaxDifferenceChanged(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let changes: SyntaxDeltaStore
 ): Int {
-    let functions: Int(compilerBSyntaxDifferenceChangedFacet(
+    let functions: Int(syntaxDifferenceChangedFacet(
         previous: previous,
         previousDeclarations: previous.functionDeclarations,
         current: current,
@@ -307,7 +307,7 @@ function compilerBSyntaxDifferenceChanged(
         changes: changes
     ))
     if functions < 0 { return 0 - 1 }
-    let constructs: Int(compilerBSyntaxDifferenceChangedFacet(
+    let constructs: Int(syntaxDifferenceChangedFacet(
         previous: previous,
         previousDeclarations: previous.constructDeclarations,
         current: current,
@@ -318,12 +318,12 @@ function compilerBSyntaxDifferenceChanged(
     return functions + constructs
 }
 
-function compilerBSyntaxDifferenceAdded(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision,
-    changes: CompilerBSyntaxDeltaStore
+function syntaxDifferenceAdded(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let changes: SyntaxDeltaStore
 ): Int {
-    let functions: Int(compilerBSyntaxDifferenceAddedFacet(
+    let functions: Int(syntaxDifferenceAddedFacet(
         previous: previous,
         previousDeclarations: previous.functionDeclarations,
         current: current,
@@ -331,7 +331,7 @@ function compilerBSyntaxDifferenceAdded(
         changes: changes
     ))
     if functions < 0 { return 0 - 1 }
-    let constructs: Int(compilerBSyntaxDifferenceAddedFacet(
+    let constructs: Int(syntaxDifferenceAddedFacet(
         previous: previous,
         previousDeclarations: previous.constructDeclarations,
         current: current,
@@ -342,11 +342,11 @@ function compilerBSyntaxDifferenceAdded(
     return functions + constructs
 }
 
-function compilerBSyntaxDifference(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision
-): CompilerBSyntaxDelta {
-    let changes: CompilerBSyntaxDeltaStore(compilerBSyntaxDeltaStoreCreate(
+function syntaxDifference(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision
+): SyntaxDelta {
+    let changes: SyntaxDeltaStore(syntaxDeltaStoreCreate(
         capacity: previous.nodes.ids.count + current.nodes.ids.count
     ))
     state valid: Bool(previous.valid && current.valid)
@@ -358,7 +358,7 @@ function compilerBSyntaxDifference(
     if previous.valid && !current.valid { diagnostic: "current syntax revision is invalid" }
 
     if valid {
-        removedCount: compilerBSyntaxDifferenceRemoved(
+        removedCount: syntaxDifferenceRemoved(
             previous: previous,
             current: current,
             changes: changes
@@ -369,7 +369,7 @@ function compilerBSyntaxDifference(
         }
     }
     if valid {
-        changedCount: compilerBSyntaxDifferenceChanged(
+        changedCount: syntaxDifferenceChanged(
             previous: previous,
             current: current,
             changes: changes
@@ -380,7 +380,7 @@ function compilerBSyntaxDifference(
         }
     }
     if valid {
-        addedCount: compilerBSyntaxDifferenceAdded(
+        addedCount: syntaxDifferenceAdded(
             previous: previous,
             current: current,
             changes: changes
@@ -391,7 +391,7 @@ function compilerBSyntaxDifference(
         }
     }
 
-    return CompilerBSyntaxDelta(
+    return SyntaxDelta(
         changes: changes,
         addedCount: addedCount,
         removedCount: removedCount,
@@ -401,17 +401,17 @@ function compilerBSyntaxDifference(
     )
 }
 
-function compilerBSyntaxRevisionsApply(
-    previous: CompilerBSyntaxRevision,
-    current: CompilerBSyntaxRevision,
-    operation: CompilerBSyntaxRevisionOperation
-): CompilerBSyntaxDelta {
+function syntaxRevisionsApply(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let operation: SyntaxRevisionOperation
+): SyntaxDelta {
     if operation == .difference {
-        return compilerBSyntaxDifference(previous: previous, current: current)
+        return syntaxDifference(previous: previous, current: current)
     }
-    return compilerBSyntaxDifference(previous: previous, current: current)
+    return syntaxDifference(previous: previous, current: current)
 }
 
-function compilerBSyntaxDeltaDestroy(delta: CompilerBSyntaxDelta): Int {
-    return compilerBSyntaxDeltaStoreDestroy(store: delta.changes)
+function syntaxDeltaDestroy(let delta: SyntaxDelta): Int {
+    return syntaxDeltaStoreDestroy(store: delta.changes)
 }

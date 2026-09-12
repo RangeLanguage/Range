@@ -1,11 +1,11 @@
 @builtin(.write)
-function rawBufferAppendUnsigned8(buffer: RawBuffer, value: Int<.unsigned, 8>): Int
+function rawBufferAppendUnsigned8(let buffer: RawBuffer, let value: Int<.unsigned, 8>): Int
 
 @builtin(.read)
-function rawBufferLoadUnsigned8(buffer: RawBuffer, index: Int): Int<.unsigned, 8>
+function rawBufferLoadUnsigned8(let buffer: RawBuffer, let index: Int): Int<.unsigned, 8>
 
 @builtin(.write)
-function rawBufferStoreUnsigned8(buffer: RawBuffer, index: Int, value: Int<.unsigned, 8>): Int
+function rawBufferStoreUnsigned8(let buffer: RawBuffer, let index: Int, let value: Int<.unsigned, 8>): Int
 
 @main {
     let buffer: RawBuffer(rawBufferCreate(capacity: 2, stride: 1))

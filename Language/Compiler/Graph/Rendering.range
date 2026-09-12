@@ -1,0 +1,78 @@
+function programGraphSchema(): String {
+    return "range-program-graph-v1\ntype\nfunction\nparameter\nblock\noperation\nvalue\noperand\neffect\ncontrol\nblockArgument\n"
+}
+
+function renderProgramGraph(let graph: ProgramGraph): String {
+    state output: String(programGraphSchema())
+    state row: Int(0)
+    while row < graph.typeDeclarationRows.count {
+        output.append(
+            text: "type\tid=\(row)\tdeclaration=\(graph.typeDeclarationRows.element(index: row))\trepresentation=\(graph.typeRepresentationCodes.element(index: row))\twidth=\(graph.typeWidths.element(index: row))\talignment=\(graph.typeAlignments.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.functionSourceIDs.count {
+        output.append(
+            text: "function\tid=\(row)\tsource=\(graph.functionSourceIDs.element(index: row))\tsyntax=\(graph.functionSyntaxIDs.element(index: row))\tentry=\(graph.functionEntryBlockIDs.element(index: row))\treturnType=\(graph.functionReturnTypeIDs.element(index: row))\textern=\(graph.functionExternCodes.element(index: row))\tname=\(programGraphFunctionName(graph: graph, functionID: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.functionParameterFunctionIDs.count {
+        output.append(
+            text: "parameter\tfunction=\(graph.functionParameterFunctionIDs.element(index: row))\tordinal=\(graph.functionParameterOrdinals.element(index: row))\ttype=\(graph.functionParameterTypeIDs.element(index: row))\tvalue=\(graph.functionParameterValueIDs.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.blockFunctionIDs.count {
+        output.append(
+            text: "block\tid=\(row)\tfunction=\(graph.blockFunctionIDs.element(index: row))\tsyntax=\(graph.blockSyntaxIDs.element(index: row))\tterminated=\(graph.blockTerminatedCodes.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.operationBlockIDs.count {
+        output.append(
+            text: "operation\tid=\(row)\tblock=\(graph.operationBlockIDs.element(index: row))\tkind=\(graph.operationKindCodes.element(index: row))\tsource=\(graph.operationSourceIDs.element(index: row))\tsyntax=\(graph.operationSyntaxIDs.element(index: row))\tdeclaration=\(graph.operationDeclarationRows.element(index: row))\ttargetFunction=\(graph.operationTargetFunctionIDs.element(index: row))\timmediate=\(graph.operationImmediates.element(index: row))\twidth=\(graph.operationWidths.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.valueProducerOperationIDs.count {
+        output.append(
+            text: "value\tid=\(row)\tproducer=\(graph.valueProducerOperationIDs.element(index: row))\tordinal=\(graph.valueProducerOrdinals.element(index: row))\ttype=\(graph.valueTypeIDs.element(index: row))\trepresentation=\(graph.valueRepresentationCodes.element(index: row))\twidth=\(graph.valueWidths.element(index: row))\townership=\(graph.valueOwnershipCodes.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.operandOperationIDs.count {
+        output.append(
+            text: "operand\toperation=\(graph.operandOperationIDs.element(index: row))\tordinal=\(graph.operandOrdinals.element(index: row))\tvalue=\(graph.operandValueIDs.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.effectSourceOperationIDs.count {
+        output.append(
+            text: "effect\tsource=\(graph.effectSourceOperationIDs.element(index: row))\ttarget=\(graph.effectTargetOperationIDs.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.controlSourceBlockIDs.count {
+        output.append(
+            text: "control\tsource=\(graph.controlSourceBlockIDs.element(index: row))\ttarget=\(graph.controlTargetBlockIDs.element(index: row))\tpredicate=\(graph.controlPredicateValueIDs.element(index: row))\texpected=\(graph.controlExpectedValues.element(index: row))\tordinal=\(graph.controlOrdinals.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    row: 0
+    while row < graph.blockArgumentBlockIDs.count {
+        output.append(
+            text: "blockArgument\tblock=\(graph.blockArgumentBlockIDs.element(index: row))\tordinal=\(graph.blockArgumentOrdinals.element(index: row))\tvalue=\(graph.blockArgumentValueIDs.element(index: row))\ttype=\(graph.blockArgumentTypeIDs.element(index: row))\n"
+        )
+        row: row + 1
+    }
+    return output
+}

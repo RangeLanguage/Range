@@ -1,0 +1,20 @@
+// Parser-only fixture. Execution of generic specializations remains unsupported.
+construct Number<let bits: 64, let signed: true> {
+    let value: 0
+}
+
+function sample<let width: 64>(let value: Number<bits: width>): Number<bits: width> {
+    let required: Number<bits: 32>
+    let defaulted: Number<bits: 32>()
+    let supplied: Number<bits: 32, signed: false>(value: 3)
+    let nested: Box<element: Number<bits: 8>>(value: Number<bits: 8>(value: 3))
+    if value < other { return value }
+    return Number<bits: width>(value: value)
+}
+
+macro sampleMacro<let width: 64>(let value: Number<bits: width>): Construct -> Number<bits: width> {
+    return value
+}
+
+@sampleMacro<width: 32>(value: 3)
+construct Annotated {}

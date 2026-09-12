@@ -1,0 +1,5 @@
+function start(): Int {
+    let values: @many Int
+    values.destroy()
+    return values.destroy()
+}

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-installer.XXXXXX")"
+cleanup() { rm -rf "$work_root"; }
+trap cleanup EXIT
+
+install_root="$work_root/install"
+bin_root="$work_root/bin"
+missing_status=0
+RANGE_INSTALL_PLATFORM=darwin-arm64 \
+RANGE_INSTALL_ROOT="$install_root" \
+RANGE_BIN_ROOT="$bin_root" \
+    "$REPO_ROOT/install-range" >/dev/null 2>&1 || missing_status=$?
+[[ "$missing_status" -eq 69 ]]
+[[ ! -e "$install_root" && ! -e "$bin_root" ]]
+
+artifact="$work_root/range"
+printf '#!/usr/bin/env bash\nprintf "Range fixture\\n"\n' > "$artifact"
+chmod 755 "$artifact"
+hash="$(/usr/bin/shasum -a 256 "$artifact" | /usr/bin/awk '{print $1}')"
+manifest="$work_root/Manifest.json"
+printf '{"formatVersion":1,"artifacts":{"darwin-arm64":{"path":"range","sha256":"wrong"}}}\n' > "$manifest"
+
+checksum_status=0
+RANGE_INSTALL_PLATFORM=darwin-arm64 \
+RANGE_DISTRIBUTION_MANIFEST="$manifest" \
+RANGE_INSTALL_ROOT="$install_root" \
+RANGE_BIN_ROOT="$bin_root" \
+    "$REPO_ROOT/install-range" >/dev/null 2>&1 || checksum_status=$?
+[[ "$checksum_status" -eq 65 ]]
+[[ ! -e "$install_root" && ! -e "$bin_root" ]]
+
+printf '{"formatVersion":1,"artifacts":{"darwin-arm64":{"path":"range","sha256":"%s"}}}\n' "$hash" > "$manifest"
+for iteration in 1 2; do
+    RANGE_INSTALL_PLATFORM=darwin-arm64 \
+    RANGE_DISTRIBUTION_MANIFEST="$manifest" \
+    RANGE_INSTALL_ROOT="$install_root" \
+    RANGE_BIN_ROOT="$bin_root" \
+        "$REPO_ROOT/install-range" >/dev/null
+done
+[[ -x "$install_root/bin/range" ]]
+[[ -L "$bin_root/range" ]]
+[[ "$($bin_root/range)" == "Range fixture" ]]
+
+unsupported_status=0
+RANGE_INSTALL_PLATFORM=unsupported \
+RANGE_INSTALL_ROOT="$work_root/unsupported-install" \
+RANGE_BIN_ROOT="$work_root/unsupported-bin" \
+    "$REPO_ROOT/install-range" >/dev/null 2>&1 || unsupported_status=$?
+[[ "$unsupported_status" -eq 69 ]]
+[[ ! -e "$work_root/unsupported-install" ]]
+
+echo "range installer check: pass"

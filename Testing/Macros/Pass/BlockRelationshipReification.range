@@ -82,7 +82,7 @@ construct RelationshipRegistration {
 
 construct BlockRegistration {}
 
-macro contents(_ shape: DelimiterPair): Member -> RelationshipRegistration {
+macro contents(let shape: DelimiterPair): Member -> RelationshipRegistration {
     return RelationshipRegistration(
         multiplicity: RelationshipMultiplicity(
             minimum: 0,
@@ -101,14 +101,14 @@ macro block(): Member -> BlockRegistration {
 
 @syntax
 construct ParenthesizedBlock {
-    @contents(.parentheses)
+    @contents(shape: .parentheses)
     @block
     let contents: Array<@syntax>
 }
 
 @syntax
 construct Block {
-    @contents(.braces)
+    @contents(shape: .braces)
     @block
     let contents: Array<@syntax>
 }

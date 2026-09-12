@@ -1,0 +1,18 @@
+@collectionModifier
+macro filter(let named: String): @many -> @any {
+    state input: #environment.target
+    state output: @any(capacity: input.capacity)
+    state index: Int(0)
+
+    while index < input.count {
+        let element: input.element(index: index)
+
+        if element.name == named {
+            output.append(element)
+        }
+
+        index: index + 1
+    }
+
+    output
+}

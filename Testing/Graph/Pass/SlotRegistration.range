@@ -6,7 +6,7 @@ construct Pair {
     let right: Int
 }
 
-function choose(first: Int, second: Int): Int {
+function choose(let first: Int, let second: Int): Int {
     return first
 }
 

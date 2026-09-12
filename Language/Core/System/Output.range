@@ -10,6 +10,6 @@ construct Write {
     binding bytes: Byte
 }
 
-macro write(bytes: @many, destination: Output): Void {
+macro write(let bytes: @many, let destination: Output): Void {
     Execution(effect: Write(destination: destination, bytes: bytes))
 }

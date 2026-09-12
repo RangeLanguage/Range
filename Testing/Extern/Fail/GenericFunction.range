@@ -1,2 +1,2 @@
 @extern
-function rangeGenericExtern<Value>(value: Int): Int
+function rangeGenericExtern<Value>(let value: Int): Int

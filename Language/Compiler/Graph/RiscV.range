@@ -1,0 +1,10 @@
+function materializeProgramGraphRiscV(
+    let lowering: ProgramLowering,
+    let entryFunctionID: Int
+): ProgramGraphAssembly {
+    return ProgramGraphAssembly(
+        text: "",
+        valid: false,
+        diagnostic: "RISC-V ProgramGraph materialization is not implemented"
+    )
+}

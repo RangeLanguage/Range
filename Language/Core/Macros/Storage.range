@@ -5,4 +5,4 @@ enum Storage {
     case binding
 }
 
-macro storage(mode: Storage): Construct {}
+macro storage(let mode: Storage): Construct {}

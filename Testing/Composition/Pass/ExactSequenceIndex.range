@@ -7,7 +7,7 @@ construct Identity {
     let second: Int
 }
 
-function compositionWords(components: Array<Identity>): Buffer<Int> {
+function compositionWords(let components: Array<Identity>): Buffer<Int> {
     let words: Buffer<Int>(bufferCreateInt(capacity: components.count * 2))
     state component: Int(0)
     while component < components.count {
@@ -18,7 +18,7 @@ function compositionWords(components: Array<Identity>): Buffer<Int> {
     return words
 }
 
-function appendComposition(index: CompilerCompositionExactIndex, composition: Composition): Int {
+function appendComposition(let index: CompilerCompositionExactIndex, let composition: Composition): Int {
     let words: Buffer<Int>(compositionWords(components: composition.components))
     let row: Int(compilerCompositionExactIndexAppend(
         index: index,
@@ -30,7 +30,7 @@ function appendComposition(index: CompilerCompositionExactIndex, composition: Co
     return row
 }
 
-function buildIndex(compositionsCount: Int, first: Composition, second: Composition, reversed: Composition): CompilerCompositionExactIndex {
+function buildIndex(let compositionsCount: Int, let first: Composition, let second: Composition, let reversed: Composition): CompilerCompositionExactIndex {
     let index: CompilerCompositionExactIndex(compilerCompositionExactIndexCreate(estimatedCompositionCount: compositionsCount))
     appendComposition(index: index, composition: first)
     appendComposition(index: index, composition: second)

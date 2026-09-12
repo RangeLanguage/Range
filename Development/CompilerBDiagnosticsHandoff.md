@@ -192,7 +192,7 @@ Compiler:
 - `Core/Syntax/Parser.range` — `diagnosticStart` tracked at each in-loop failure
   site, carried through the single revision construction site.
 - `Core/Syntax/Declaration.range` — `diagnosticStart: Int` on
-  `CompilerBSyntaxRevision`.
+  `SyntaxRevision`.
 - `Core/Project/Revision.range` — fail-soft population returning a failure
   count; `compilerBProjectReportSyntaxDiagnostics` and
   `compilerBProjectReportResolutionDiagnostics` as read-only reporting passes;

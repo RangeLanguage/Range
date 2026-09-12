@@ -28,11 +28,11 @@ allowed to transform it.
 - **Typed metaprogramming.** Macros query program identities and relationships,
   receive only the environment they are allowed to observe, and return graph
   transformations rather than rewriting an untyped token stream.
-- **Native output.** The supported compiler is authored in Range and emits
-  LLVM for native execution.
+- **Native output.** The supported compiler is authored in Range and lowers
+  ProgramGraph directly to ARM64 machine code and Mach-O artifacts.
 - **A reproducible compiler authority.** A compiler checkpoint is accepted only
   when the accepted compiler builds a candidate and that candidate rebuilds
-  the same source into byte-identical LLVM and a byte-identical executable.
+  the same source into byte-identical graphs, objects, and executables.
 
 ## Identity : Value
 
@@ -66,7 +66,7 @@ construct Counter {
     }
 }
 
-function clamp(value: Int, min: Int, max: Int): Int {
+function clamp(let value: Int, let min: Int, let max: Int): Int {
     if value < min { return min }
     if value > max { return max }
     return value
@@ -88,7 +88,7 @@ program transformations to speak about the same graph as ordinary Range code.
 
 ## Written in Range
 
-The supported compiler is authored in Range and emits native LLVM. Compiler
+The supported compiler is authored in Range and owns its native backend. Compiler
 changes are proven with one two-build fixed-point check:
 
 ```text
@@ -96,7 +96,7 @@ accepted compiler + source -> candidate
 candidate + same source -> reproduction
 ```
 
-Candidate and reproduction LLVM and executables must match byte for byte.
+Candidate and reproduction graphs, objects, and executables must match byte for byte.
 There is one rolling compiler authority under `Language/Bootstrap/`; Git
 history preserves older checkpoints without turning them into competing
 authorities.
@@ -110,18 +110,19 @@ supported language surface remains deliberately bounded: focused fixtures
 prove individual capabilities rather than implying a complete language or
 standard library.
 
-Repository branches may represent different compiler generations. Run the
-branch's command index to see its supported workflows:
+Repository branches may represent different compiler generations. The
+temporary bootstrap launcher remains available while the native CLI reaches
+its reproducibility gate:
 
 ```sh
-scripts/range
+Language/Bootstrap/Tools/range
 ```
 
 Two shared compiler-maintenance proofs are:
 
 ```sh
-scripts/range check-build-plan
-scripts/range check-compiler-candidate
+Testing/Tools/check-range-compiler
+Testing/Tools/check-range-compiler-self-host --expect-boundary
 ```
 
 A passing focused proof establishes only its documented boundary. It is not a

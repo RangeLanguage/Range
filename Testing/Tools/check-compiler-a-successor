@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BUILD_TOOL="$REPO_ROOT/Language/Bootstrap/Tools/build-compiler-a-successor"
+FIXTURE="$REPO_ROOT/Testing/Compiler/Pass/CompilerASuccessorParameterizedCall"
+
+fail() {
+    echo "Compiler A successor check: $*" >&2
+    exit 1
+}
+
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-compiler-a-check.XXXXXX")"
+cleanup() {
+    if [[ "${RANGE_KEEP_COMPILER_A_CHECK_ROOT:-0}" == "1" ]]; then
+        echo "Compiler A successor check root: $work_root" >&2
+    else
+        rm -rf "$work_root"
+    fi
+}
+trap cleanup EXIT
+
+"$BUILD_TOOL" --build-only "$work_root"
+
+line_count="$(wc -l < "$work_root/GenerationZero.ll" | tr -d ' ')"
+[[ "$line_count" == "29088" ]] \
+    || fail "expected 29088 LLVM lines, found $line_count"
+[[ -x "$work_root/GenerationZero" ]] \
+    || fail "Generation Zero is not executable"
+
+"$work_root/GenerationZero" --emit-llvm "$FIXTURE" > "$work_root/call.ll"
+grep -F 'define i64 @Range.function.0.23(i64 %a0, i64 %a1)' \
+    "$work_root/call.ll" >/dev/null \
+    || fail "parameterized function signature was not lowered"
+grep -E 'call i64 @Range\.function\.0\.23\(i64 %v[0-9]+, i64 %v[0-9]+\)' \
+    "$work_root/call.ll" >/dev/null \
+    || fail "two-argument internal call was not lowered"
+
+echo "Compiler A successor check: pass llvmLines=$line_count internalArguments=2"

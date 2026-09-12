@@ -1,0 +1,78 @@
+function buildBinaryLinkerFixture(): Int {
+    let object: RelocatableObject(relocatableObject(
+        sectionCapacity: 1,
+        symbolCapacity: 2,
+        relocationCapacity: 1,
+        entrySymbol: "_main"
+    ))
+    let text: Binary(binary(capacity: 16))
+    binaryAppendUInt32LE(
+        output: text,
+        value: unsigned32(high: 53888, low: 512)
+    )
+    binaryAppendUInt32LE(
+        output: text,
+        value: unsigned32(high: 37888, low: 0)
+    )
+    binaryAppendUInt32LE(
+        output: text,
+        value: unsigned32(high: 53888, low: 0)
+    )
+    binaryAppendUInt32LE(
+        output: text,
+        value: unsigned32(high: 54879, low: 960)
+    )
+    let textID: Int(objectAppendSection(
+        object: object,
+        segmentName: "__TEXT",
+        sectionName: "__text",
+        kind: .text,
+        alignment: 4,
+        bytes: text,
+        zeroFillSize: unsigned64FromInt(value: 0)
+    ))
+    objectAppendSymbol(
+        object: object,
+        name: "_main",
+        kind: .global,
+        sectionIndex: textID,
+        offset: unsigned64FromInt(value: 0)
+    )
+    let mallocSymbol: Int(objectAppendSymbol(
+        object: object,
+        name: "_malloc",
+        kind: .undefined,
+        sectionIndex: 0 - 1,
+        offset: unsigned64FromInt(value: 0)
+    ))
+    objectAppendRelocation(
+        object: object,
+        sectionIndex: textID,
+        offset: 4,
+        kind: .arm64Branch26,
+        symbolIndex: mallocSymbol,
+        addend: 0,
+        pcRelative: true,
+        width: 4
+    )
+    state objects: @many(capacity: 1)
+    objects.append(element: object)
+    let executable: BinaryArtifact(linkExecutable(
+        objects: objects,
+        options: LinkOptions(
+            target: CompilationTarget(
+                architecture: .arm64,
+                platform: .macOS,
+                minimumMajorVersion: 27,
+                minimumMinorVersion: 0
+            ),
+            identifier: "org.range.binary-linker-fixture",
+            allowedSystemImports: "_malloc\n"
+        )
+    ))
+    if !executable.valid { return 65 }
+    return fileManagerWriteExecutable(
+        path: "/tmp/range-binary-linker-fixture",
+        bytes: executable.bytes
+    )
+}

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+if [[ $# -lt 1 ]]; then
+    echo "usage: range run <project-path-or-name> [-- args...]" >&2
+    exit 64
+fi
+
+project="$($SCRIPT_DIR/range-project-registry resolve "$1")"
+shift
+if [[ "${1:-}" == "--" ]]; then shift; fi
+
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-run.XXXXXX")"
+cleanup() {
+    if [[ "${RANGE_KEEP_RUN_ROOT:-0}" == "1" ]]; then
+        echo "range run root: $work_root" >&2
+    else
+        rm -rf "$work_root"
+    fi
+}
+trap cleanup EXIT
+
+assembly="$work_root/Program.s"
+executable="$work_root/Program"
+"$SCRIPT_DIR/bootstrap-range-compiler" --emit-assembly "$project" > "$assembly"
+clang -arch arm64 \
+    "$assembly" \
+    "$REPO_ROOT/Language/Runtime/RangeCompilerHost.c" \
+    "$REPO_ROOT/Language/Runtime/RangeCompilerMetrics.c" \
+    "$REPO_ROOT/Language/Runtime/RangeRawBuffer.c" \
+    -o "$executable"
+"$executable" "$@"

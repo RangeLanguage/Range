@@ -1,10 +1,10 @@
 @encoding
 construct UTF8 {
-    function encode(value: String): @many Byte {
+    function encode(let value: String): @many Byte {
         return value.bytes
     }
 
-    function decode(value: @many Byte): UTF8Decoding {
+    function decode(let value: @many Byte): UTF8Decoding {
         state index: Int(0)
         while index < value.count {
             let first: Int(value.element(index: index))

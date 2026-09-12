@@ -1,0 +1,288 @@
+function compileProject(
+    let project: Project,
+    let demand: CompilationDemand
+): Revision {
+    let language: URL(
+        project.toolchainRoot.appending(component: "Language")
+    )
+    let core: URL(language.appending(component: "Core"))
+    let sourcePaths: String(
+        compilerBDiscoverProjectSourcePaths(
+            route: project.root.string(),
+            core: core
+        )
+    )
+    let sourceCount: Int(compilerBSourceSetLineCount(lines: sourcePaths))
+    let compiler: CompilerBProjectRevision(
+        sourcePaths: sourcePaths,
+        sourceCount: sourceCount,
+        declarations: compilerBProjectDeclarationStoreCreate(
+            capacity: sourceCount * 32
+        ),
+        macroApplications: compilerBProjectMacroApplicationStoreCreate(
+            capacity: sourceCount * 32
+        ),
+        emittedMacroBlocks: compilerBProjectEmittedMacroBlockStoreCreate(
+            capacity: sourceCount * 4
+        ),
+        syntaxGraph: syntaxGraphCreate(capacity: sourceCount * 8),
+        syntaxCaptureValues: syntaxCaptureValueGraphCreate(
+            captureCapacity: sourceCount * 64,
+            valueCapacity: sourceCount * 256
+        )
+    )
+    state failures: Int(compilerBPopulateAndValidateProjectRevision(
+        revision: compiler,
+        mode: compilerBProjectMode(
+            emitAssembly: demand.artifact == .object
+        )
+    ))
+    let targetSelection: ProjectTargetSelection(
+        compilerBSelectProjectTarget(revision: compiler)
+    )
+    if !targetSelection.valid {
+        print(message: "Range Language failed to select a target:\n\(targetSelection.diagnostic)")
+        failures: failures + 1
+    }
+    if failures != 0 {
+        compilerBReportProjectDiagnostics(revision: compiler)
+    }
+    return Revision(
+        project: project,
+        demand: demand,
+        target: targetSelection.target,
+        compiler: compiler,
+        diagnosticCount: failures
+    )
+}
+
+function compilerBAllowedDarwinSystemImports(): String {
+    return "__NSGetArgc\n__NSGetArgv\n___error\n___stderrp\n_abort\n_arc4random_buf\n_atexit\n_bzero\n_calloc\n_chmod\n_clock_gettime\n_dlsym\n_environ\n_fclose\n_fflush\n_fopen\n_fprintf\n_fread\n_free\n_fwrite\n_getenv\n_malloc\n_malloc_size\n_memcmp\n_memcpy\n_mkdir\n_posix_spawnp\n_puts\n_realloc\n_remove\n_rename\n_snprintf\n_stat\n_strcmp\n_strlen\n_strpbrk\n_strstr\n_waitpid\n"
+}
+
+function emitExecutable(let revision: Revision, let output: URL): Artifact {
+    if revision.diagnosticCount != 0 {
+        return Artifact(url: output, status: 65)
+    }
+
+    let programObject: RelocatableObject(compilerBEncodeProjectObject(
+        project: revision.compiler,
+        target: revision.target
+    ))
+    if !programObject.valid {
+        print(message: "Range Language failed to compile:\n\(programObject.diagnostic)")
+        return Artifact(url: output, status: 65)
+    }
+    state objects: @many(capacity: 4)
+    objects.append(element: programObject)
+    let runtimeRoot: String(
+        "\(revision.project.toolchainRoot.string())/Distribution/Runtime/darwin-arm64"
+    )
+    let runtimeNames: String(
+        "RangeCompilerHost.o\nRangeCompilerMetrics.o\nRangeRawBuffer.o\n"
+    )
+    state nameStart: Int(0)
+    state cursor: Int(0)
+    while cursor < runtimeNames.count {
+        if runtimeNames.byte(index: cursor) == 10 {
+            let name: String(runtimeNames.substring(start: nameStart, end: cursor))
+            let source: String(fileManagerReadFile(path: "\(runtimeRoot)/\(name)"))
+            if source.count == 0 {
+                return Artifact(url: output, status: 66)
+            }
+            let runtimeObject: RelocatableObject(readMachOObject(
+                input: binaryFromString(value: source)
+            ))
+            if !runtimeObject.valid {
+                return Artifact(url: output, status: 65)
+            }
+            objects.append(element: runtimeObject)
+            nameStart: cursor + 1
+        }
+        cursor: cursor + 1
+    }
+    let executable: BinaryArtifact(linkExecutable(
+        objects: objects,
+        options: LinkOptions(
+            target: revision.target,
+            identifier: revision.project.identity,
+            allowedSystemImports: compilerBAllowedDarwinSystemImports()
+        )
+    ))
+    if !executable.valid {
+        print(message: "Range Language failed to link:\n\(executable.diagnostic)")
+        return Artifact(url: output, status: 65)
+    }
+    return Artifact(
+        url: output,
+        status: fileManagerWriteExecutable(
+            path: output.string(),
+            bytes: executable.bytes
+        )
+    )
+}
+
+function compilerBCompileRoute(
+    let route: String,
+    let emitAssembly: Bool
+): Int {
+    if !fileManagerPathExists(path: route) {
+        print(message: "range-compiler: route does not exist: \(route)")
+        return 66
+    }
+    let routeKind: Int(filePrimitivePathKind(path: route))
+    if routeKind == 1 && !emitAssembly {
+        return compilerBInspectSourceFile(route: route)
+    }
+    if routeKind != 2 {
+        print(message: "range-compiler: route must be a project directory")
+        return 66
+    }
+    return compilerBCompileProject(
+        route: route,
+        emitAssembly: emitAssembly
+    )
+}
+
+function compilerBCompileProject(
+    let route: String,
+    let emitAssembly: Bool
+): Int {
+    let mode: Int(compilerBProjectMode(emitAssembly: emitAssembly))
+    state output: String("")
+    state diagnostic: String("")
+    let compilation: Revision(compileProject(
+        project: Project(
+            identity: "",
+            root: fileURL(path: route),
+            toolchainRoot: fileURL(path: ".")
+        ),
+        demand: CompilationDemand(
+            artifact: .object
+        )
+    ))
+    let revision: CompilerBProjectRevision(compilation.compiler)
+    let failures: Int(compilation.diagnosticCount)
+    state result: Int(compilerBProduceProjectOutput(
+        revision: revision,
+        mode: mode,
+        failures: failures,
+        output: output,
+        diagnostic: diagnostic
+    ))
+    if output != "" { print(message: output) }
+    if diagnostic != "" {
+        print(message: "Range Language failed to compile:\n\(diagnostic)")
+    }
+    if compilerBProjectRevisionDestroy(revision: revision) != 0 {
+        result: 70
+    }
+    return result
+}
+
+function compilerBPopulateAndValidateProjectRevision(
+    let revision: CompilerBProjectRevision,
+    let mode: Int
+): Int {
+    state failures: Int(compilerBPopulateProjectRevision(
+        sourcePaths: revision.sourcePaths,
+        declarations: revision.declarations,
+        applications: revision.macroApplications,
+        emittedMacroBlocks: revision.emittedMacroBlocks,
+        syntaxGraph: revision.syntaxGraph
+    ))
+    if compilerBDeriveSyntaxCaptureValues(
+        graph: revision.syntaxGraph,
+        applications: revision.macroApplications,
+        values: revision.syntaxCaptureValues
+    ) != 0 { failures: failures + 1 }
+    if compilerBValidateSyntaxCaptureCardinalities(
+        graph: revision.syntaxGraph,
+        values: revision.syntaxCaptureValues
+    ) != 0 { failures: failures + 1 }
+    if compilerBValidateSyntaxCaptureIdentities(
+        graph: revision.syntaxGraph,
+        values: revision.syntaxCaptureValues,
+        sourcePaths: revision.sourcePaths,
+        declarations: revision.declarations
+    ) != 0 { failures: failures + 1 }
+    failures: failures + compilerBValidateCountedConstructions(
+        sourcePaths: revision.sourcePaths,
+        declarations: revision.declarations,
+        renderFacts: mode == compilerBProjectModeGraph()
+    )
+    return failures
+}
+
+function compilerBReportProjectDiagnostics(
+    let revision: CompilerBProjectRevision
+): Int {
+    state reported: Int(compilerBProjectReportSyntaxDiagnostics(
+        sourcePaths: revision.sourcePaths
+    ))
+    reported: reported + compilerBProjectReportResolutionDiagnostics(
+        sourcePaths: revision.sourcePaths,
+        declarations: revision.declarations
+    )
+    return reported
+}
+
+function compilerBProduceProjectOutput(
+    let revision: CompilerBProjectRevision,
+    let mode: Int,
+    let failures: Int,
+    let output: String,
+    let diagnostic: String
+): Int {
+    if mode == compilerBProjectModeGraph() {
+        output.append(text: compilerBRenderProjectRevision(
+            revision: revision,
+            diagnosticCount: failures
+        ))
+        if failures != 0 {
+            diagnostic.append(text: compilerBProjectRevisionDiagnostic(
+                diagnosticCount: failures
+            ))
+            return 65
+        }
+        return 0
+    }
+    if failures != 0 {
+        diagnostic.append(text: compilerBProjectRevisionDiagnostic(
+            diagnosticCount: failures
+        ))
+        return 65
+    }
+    if compilerBEmitProjectAssembly(
+        project: revision,
+        output: output,
+        diagnostic: diagnostic
+    ) != 0 { return 65 }
+    return 0
+}
+
+function compilerBProjectModeGraph(): Int { return 1 }
+function compilerBProjectModeAssembly(): Int { return 2 }
+
+function compilerBProjectMode(let emitAssembly: Bool): Int {
+    if emitAssembly { return compilerBProjectModeAssembly() }
+    return compilerBProjectModeGraph()
+}
+
+function compilerBInspectSourceFile(let route: String): Int {
+    let source: String(fileManagerReadFile(path: route))
+    state output: String("route=\(route)\n")
+    state diagnostic: String("")
+    state status: Int(0)
+    if compilerBLex(source: source, output: output) != 0 { status: 65 }
+    if compilerBParse(
+source: source,
+rendered: output,
+diagnostic: diagnostic
+    ) != 0 { status: 65 }
+    if output != "" { print(message: output) }
+    if diagnostic != "" {
+        print(message: "Range Language failed to compile:\n\(diagnostic)")
+    }
+    return status
+}

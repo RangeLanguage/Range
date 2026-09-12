@@ -15,17 +15,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate native scripts
-        run: bash -n scripts/range scripts/range-native scripts/check-range-compiler-candidate scripts/verify-range-compiler
+      - name: Validate bootstrap and testing tools
+        run: |
+          # Enumerate real shell files. An unrestricted glob picks up
+          # directories and non-shell artifacts, and empty xargs input is not
+          # portable, so check each file individually.
+          for tool in $(find Language/Bootstrap/Tools Language/Recovery/Tools \
+                             Testing/Tools -maxdepth 1 -type f); do
+            if head -1 "$tool" | grep -qE '^#!.*(bash|sh)'; then
+              bash -n "$tool"
+            fi
+          done
+          bash -n install-range
 
       - name: Verify accepted bootstrap
-        run: scripts/range check-compiler-integrity
+        run: Testing/Tools/check-range-compiler
 
-      - name: Verify candidate reproduction
-        run: scripts/range check-compiler-candidate
+      - name: Verify ProgramGraph and binary backend boundary
+        run: |
+          Testing/Tools/check-program-graph-lowering
+          Testing/Tools/check-range-binary-backend
+          Testing/Tools/check-range-binary-linker-execution
+          Testing/Tools/check-range-runtime-objects
+          Testing/Tools/check-range-cli-bridge
+          Testing/Tools/check-compiler-a-bundle
+          Testing/Tools/check-recovery-parser
+          Testing/Tools/check-recovery-evaluator
 
-      - name: Verify graph Source revision
-        run: scripts/range check-compiler-graph-revision
+      - name: Verify current self-host boundary
+        run: Testing/Tools/check-range-compiler-self-host --expect-boundary
 
-      - name: Verify Shape Source revision
-        run: scripts/range check-shape
+      - name: Verify installer scaffold
+        run: Testing/Tools/check-install-range

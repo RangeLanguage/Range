@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   type ShadowSettings = {
     label: string;
     color: string;
@@ -10,13 +12,16 @@
   };
 
   let sample = $state("Range");
-  let baseColor = $state("#aaacb0");
+  let a4Canvas: HTMLCanvasElement;
+  let a4Sheet: HTMLElement;
+  let shaderAvailable = $state(true);
+  let baseColor = $state("#c6cfe2");
   let outer90 = $state<ShadowSettings>({
     label: "Outer · 90°",
     color: "#111318",
     angle: 90,
-    distance: 40,
-    blur: 0,
+    distance: 13,
+    blur: 10,
     spread: 0,
     opacity: 70,
   });
@@ -24,8 +29,8 @@
     label: "Outer · 270°",
     color: "#17191e",
     angle: 270,
-    distance: 40,
-    blur: 0,
+    distance: 10,
+    blur: 15,
     spread: 0,
     opacity: 50,
   });
@@ -33,18 +38,18 @@
     label: "Inner · 90°",
     color: "#ffffff",
     angle: 90,
-    distance: 40,
-    blur: 0,
-    spread: 0,
+    distance: 15,
+    blur: 10,
+    spread: 1.5,
     opacity: 85,
   });
   let inner270 = $state<ShadowSettings>({
     label: "Inner · 270°",
     color: "#ffffff",
     angle: 270,
-    distance: 40,
-    blur: 0,
-    spread: 0,
+    distance: 15,
+    blur: 9,
+    spread: 5,
     opacity: 85,
   });
 
@@ -58,6 +63,204 @@
       y: Math.sin(radians) * distance * direction,
     };
   }
+
+  onMount(() => {
+    const context = a4Canvas.getContext("webgl", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      powerPreference: "high-performance",
+    });
+
+    if (!context) {
+      shaderAvailable = false;
+      return;
+    }
+    const gl = context;
+
+    const vertexSource = `
+      attribute vec2 a_position;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentSource = `
+      precision highp float;
+
+      uniform vec2 u_resolution;
+      uniform vec2 u_pointer;
+      uniform float u_time;
+
+      float hash(vec2 point) {
+        return fract(sin(dot(point, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float noise(vec2 point) {
+        vec2 cell = floor(point);
+        vec2 local = fract(point);
+        local = local * local * (3.0 - 2.0 * local);
+        return mix(
+          mix(hash(cell), hash(cell + vec2(1.0, 0.0)), local.x),
+          mix(hash(cell + vec2(0.0, 1.0)), hash(cell + vec2(1.0)), local.x),
+          local.y
+        );
+      }
+
+      float fbm(vec2 point) {
+        float value = 0.0;
+        float amplitude = 0.52;
+        mat2 rotation = mat2(0.82, -0.57, 0.57, 0.82);
+        for (int octave = 0; octave < 5; octave += 1) {
+          value += amplitude * noise(point);
+          point = rotation * point * 2.03 + 7.31;
+          amplitude *= 0.5;
+        }
+        return value;
+      }
+
+      float radialSpot(vec2 point, vec2 center, float radius) {
+        float normalizedDistance = length(point - center) / radius;
+        return 1.0 - smoothstep(0.0, 1.0, normalizedDistance);
+      }
+
+      void main() {
+        vec2 resolution = max(u_resolution, vec2(1.0));
+        vec2 uv = gl_FragCoord.xy / resolution;
+        vec2 point = uv - 0.5;
+        point.x *= resolution.x / resolution.y;
+
+        float drift = sin(u_time * 0.24) * 0.018;
+        vec2 amberCenter = vec2(-0.30, 0.38 + drift) + u_pointer * vec2(0.025, 0.018);
+        vec2 blueCenter = vec2(0.25, 0.02 - drift) - u_pointer * vec2(0.02, 0.024);
+
+        float amberField = radialSpot(point, amberCenter, 0.78);
+        float blueField = radialSpot(point, blueCenter, 0.56);
+        float lowerDistortion = (fbm(vec2(point.x * 2.7, point.y * 1.35) + u_time * 0.025) - 0.5) * 0.13;
+        lowerDistortion += sin(point.x * 10.0 + u_time * 0.18) * 0.018;
+        float lowerRaw = 1.0 - smoothstep(0.08, 0.62, uv.y + lowerDistortion);
+        float lowerField = clamp(lowerRaw, 0.0, 1.0);
+
+        vec3 paper = vec3(0.985, 0.975, 0.95);
+        vec3 amberEdge = vec3(1.0, 0.78, 0.045);
+        vec3 amberCore = vec3(1.0, 0.235, 0.0);
+        vec3 blueEdge = vec3(0.08, 0.78, 1.0);
+        vec3 blueCore = vec3(0.0, 0.105, 1.0);
+        vec3 amber = mix(amberEdge, amberCore, amberField);
+        vec3 blue = mix(blueEdge, blueCore, blueField);
+
+        vec3 color = mix(paper, amber, amberField * 0.96);
+        color = mix(color, blue, blueField * 0.9);
+
+        float overlap = min(amberField, blueField);
+        float burnWeight = 1.0 - exp(-7.5 * overlap * overlap);
+        vec3 burnEdge = vec3(0.88, 0.22, 0.012);
+        vec3 burnCore = vec3(0.24, 0.035, 0.006);
+        vec3 burntOrange = mix(burnEdge, burnCore, smoothstep(0.22, 0.92, overlap));
+        color = mix(color, burntOrange, burnWeight * 0.94);
+        color = mix(color, vec3(1.0), lowerField);
+
+        color = pow(max(color, 0.0), vec3(0.94));
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `;
+
+    function compile(type: number, source: string) {
+      const shader = gl.createShader(type);
+      if (!shader) throw new Error("Unable to create A4 shader.");
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader) ?? "A4 shader compilation failed.");
+      }
+      return shader;
+    }
+
+    let program: WebGLProgram;
+    try {
+      const vertex = compile(gl.VERTEX_SHADER, vertexSource);
+      const fragment = compile(gl.FRAGMENT_SHADER, fragmentSource);
+      const createdProgram = gl.createProgram();
+      if (!createdProgram) throw new Error("Unable to create A4 shader program.");
+      gl.attachShader(createdProgram, vertex);
+      gl.attachShader(createdProgram, fragment);
+      gl.linkProgram(createdProgram);
+      if (!gl.getProgramParameter(createdProgram, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(createdProgram) ?? "A4 shader link failed.");
+      }
+      program = createdProgram;
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+    } catch (error) {
+      console.error(error);
+      shaderAvailable = false;
+      return;
+    }
+
+    const position = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, position);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW,
+    );
+
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    const pointerLocation = gl.getUniformLocation(program, "u_pointer");
+    const timeLocation = gl.getUniformLocation(program, "u_time");
+    const startedAt = performance.now();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let pointerX = 0;
+    let pointerY = 0;
+    let targetX = 0;
+    let targetY = 0;
+    let frame = 0;
+
+    function handlePointer(event: PointerEvent) {
+      const bounds = a4Sheet.getBoundingClientRect();
+      targetX = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+      targetY = -(((event.clientY - bounds.top) / bounds.height) * 2 - 1);
+    }
+
+    function render(now: number) {
+      pointerX += (targetX - pointerX) * 0.06;
+      pointerY += (targetY - pointerY) * 0.06;
+      const density = Math.min(window.devicePixelRatio || 1, 1.5);
+      const width = Math.max(1, Math.round(a4Canvas.clientWidth * density));
+      const height = Math.max(1, Math.round(a4Canvas.clientHeight * density));
+      if (a4Canvas.width !== width || a4Canvas.height !== height) {
+        a4Canvas.width = width;
+        a4Canvas.height = height;
+      }
+      gl.viewport(0, 0, width, height);
+      gl.useProgram(program);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(resolutionLocation, width, height);
+      gl.uniform2f(pointerLocation, pointerX, pointerY);
+      gl.uniform1f(timeLocation, reducedMotion ? 0 : (now - startedAt) / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      frame = requestAnimationFrame(render);
+    }
+
+    function resetPointer() {
+      targetX = 0;
+      targetY = 0;
+    }
+
+    a4Sheet.addEventListener("pointermove", handlePointer);
+    a4Sheet.addEventListener("pointerleave", resetPointer);
+    frame = requestAnimationFrame(render);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      a4Sheet.removeEventListener("pointermove", handlePointer);
+      a4Sheet.removeEventListener("pointerleave", resetPointer);
+      gl.deleteBuffer(position);
+      gl.deleteProgram(program);
+    };
+  });
 </script>
 
 <svelte:head>
@@ -80,7 +283,14 @@
   </header>
 
   <section class="stage" aria-live="polite">
-    <svg class="shader" viewBox="0 0 1400 560" role="img" aria-label={displayText}>
+    <div class="a4Sheet" bind:this={a4Sheet}>
+      <canvas
+        class="a4Shader"
+        bind:this={a4Canvas}
+        aria-label="Distorted amber and blue spotlight fields with a pure-white lower gradient blending into burnt orange"
+      ></canvas>
+      <span class="sheetLabel">A4 · 210 × 297</span>
+      <svg class="shader" viewBox="0 0 1400 560" role="img" aria-label={displayText}>
       <defs>
         <filter
           id="range-text-material"
@@ -186,7 +396,11 @@
         textLength={Math.min(1120, Math.max(420, displayText.length * 178))}
         lengthAdjust="spacingAndGlyphs"
       >{displayText}</text>
-    </svg>
+      </svg>
+      {#if !shaderAvailable}
+        <span class="shaderFallback">Shader unavailable</span>
+      {/if}
+    </div>
   </section>
 
   <form onsubmit={(event) => event.preventDefault()}>
@@ -331,13 +545,69 @@
   .stage {
     min-height: 0;
     display: grid;
+    align-items: end;
+    justify-items: center;
+    padding: 18px 0;
+  }
+
+  .a4Sheet {
+    position: relative;
+    isolation: isolate;
+    height: min(43vh, 520px);
+    aspect-ratio: 210 / 297;
+    display: grid;
     place-items: center;
+    border: 1px solid rgba(30, 32, 37, 0.1);
+    background: #ffffff;
+    box-shadow:
+      0 18px 54px rgba(30, 32, 37, 0.08),
+      0 2px 8px rgba(30, 32, 37, 0.05);
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .a4Shader {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .sheetLabel {
+    position: absolute;
+    z-index: 3;
+    top: 13px;
+    right: 14px;
+    color: rgba(30, 32, 37, 0.3);
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .shader {
-    width: min(94vw, 1220px);
-    max-height: 44vh;
+    position: absolute;
+    z-index: 2;
+    top: 86%;
+    left: 50%;
+    width: 88%;
     overflow: visible;
+    transform: translate(-50%, -50%);
+  }
+
+  .shaderFallback {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: rgba(30, 32, 37, 0.44);
+    background: #f6ead5;
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 9px;
+    text-transform: uppercase;
   }
 
   .shaderText {
@@ -542,8 +812,7 @@
     }
 
     .shader {
-      width: 108vw;
-      max-width: none;
+      width: 90%;
     }
 
     .shaderText {

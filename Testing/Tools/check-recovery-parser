@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# Proves the recovery interpreter's front end.
+#
+#   - every canonical compiler source parses, unmodified
+#   - the census matches Manifest.json exactly, not merely failures=0
+#   - difficult forms are structurally present, not silently omitted
+#   - malformed input fails with a source location, including well-tokenized
+#     syntax errors rather than only lexical and unterminated ones
+#   - no public entry point references the recovery seed
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SOURCE_MANIFEST="$REPO_ROOT/Language/CompilerSources.txt"
+RECOVERY_MANIFEST="$REPO_ROOT/Language/Recovery/Manifest.json"
+
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-recovery-parser.XXXXXX")"
+cleanup() { rm -rf "$work_root"; }
+trap cleanup EXIT
+
+fail() { echo "recovery parser: $*" >&2; exit 1; }
+manifest_value() { /usr/bin/plutil -extract "$1" raw -o - "$RECOVERY_MANIFEST"; }
+
+interpreter="$work_root/recovery"
+"$REPO_ROOT/Language/Recovery/Tools/build-recovery-interpreter" "$interpreter"
+
+# --- the recovery seed is unreachable from every public entry point ---------
+public_paths=(
+    "$REPO_ROOT/Language/CLI"
+    "$REPO_ROOT/install-range"
+    "$REPO_ROOT/Language/Bootstrap/Tools"
+    "$REPO_ROOT/Language/Core/Package"
+    "$REPO_ROOT/Distribution"
+)
+for target in "${public_paths[@]}"; do
+    [[ -e "$target" ]] || continue
+    if /usr/bin/grep -rn 'Language/Recovery\|recovery-interpreter' "$target" >/dev/null 2>&1; then
+        fail "public entry point references the recovery seed: $target"
+    fi
+done
+if /usr/bin/grep -rn 'Language/Recovery' "$REPO_ROOT/Language/Compiler" >/dev/null 2>&1; then
+    fail "the compiler references the recovery seed"
+fi
+
+# --- canonical sources parse, unmodified, with the pinned census -----------
+before="$(cd "$REPO_ROOT" && /usr/bin/shasum -a 256 $(cat "$SOURCE_MANIFEST") | /usr/bin/shasum -a 256)"
+census="$(cd "$REPO_ROOT" && "$interpreter" $(cat "$SOURCE_MANIFEST"))"
+after="$(cd "$REPO_ROOT" && /usr/bin/shasum -a 256 $(cat "$SOURCE_MANIFEST") | /usr/bin/shasum -a 256)"
+[[ "$before" == "$after" ]] || fail "canonical sources were modified by parsing"
+
+for field in nodes construct enum function macro main; do
+    expected="$(manifest_value "expectedCensus.$field")"
+    actual="$(echo "$census" | /usr/bin/sed -n "s/.*${field}=\([0-9]*\).*/\1/p")"
+    [[ "$actual" == "$expected" ]] \
+        || fail "census $field: manifest says $expected, parser reports $actual"
+done
+echo "$census" | /usr/bin/grep -q 'failures=0' || fail "canonical sources did not parse"
+
+# --- every file inside the recovery directory is hashed by the manifest ----
+count="$(manifest_value sources)"
+: > "$work_root/listed"
+index=0
+while [[ "$index" -lt "$count" ]]; do
+    printf '%s\n' "$(manifest_value "sources.$index.path")" >> "$work_root/listed"
+    index=$((index + 1))
+done
+LC_ALL=C sort "$work_root/listed" > "$work_root/listed-sorted"
+(cd "$REPO_ROOT" && find Language/Recovery/Interpreter Language/Recovery/Tools -type f | LC_ALL=C sort) > "$work_root/present"
+cmp "$work_root/listed-sorted" "$work_root/present" >/dev/null \
+    || fail "recovery implementation inventory differs from manifest"
+
+# --- difficult forms are structurally present ------------------------------
+python3 - "$interpreter" "$work_root" "$REPO_ROOT" <<'PY'
+import pathlib, re, subprocess, sys
+interpreter, directory, repo = sys.argv[1:]
+cases = [('User', False), ('User()', True), ('original', False),
+         ('fetchUser()', True), ('User(name: String("George"))', True),
+         ('255', False)]
+for kind in ('member', 'local'):
+    for rhs, application in cases:
+        declaration = 'let subject: ' + rhs
+        source = ('construct Example {\n' + declaration + '\n}\n' if kind == 'member'
+                  else 'function sample(): Int {\n' + declaration + '\nreturn 0\n}\n')
+        path = pathlib.Path(directory) / 'member-rhs.range'
+        path.write_text(source)
+        tree = subprocess.check_output([interpreter, '--tree', str(path)], text=True)
+        line = next(line for line in tree.splitlines() if line.strip().startswith(kind + ' name=subject '))
+        match = re.search(r'rhs=(\d+):(\d+) application=(yes|no)', line)
+        assert match, line
+        start, end = map(int, match.group(1, 2))
+        assert source.encode()[start:end].decode() == rhs, (rhs, line)
+        assert (match[3] == 'yes') == application, (rhs, line)
+path.unlink()
+# Read the dump as a tree, so the assertion checks ownership as well as presence.
+source = pathlib.Path(repo) / 'Testing/Recovery/Canonical/GenericSurface.range'
+dump = subprocess.check_output([interpreter, '--tree', str(source)], text=True)
+stack = []
+for line in dump.splitlines():
+    depth = (len(line) - len(line.lstrip())) // 2
+    node = {'text': line.strip(), 'children': []}
+    while len(stack) > depth: stack.pop()
+    if stack: stack[-1]['children'].append(node)
+    else: root = node
+    stack.append(node)
+def child(node, prefix):
+    matches = [n for n in node['children'] if n['text'].startswith(prefix)]
+    assert len(matches) == 1, (prefix, matches)
+    return matches[0]
+number = child(root, 'construct name=Number ')
+assert len(child(number, 'block name=genericMembers ')['children']) == 2
+assert [n['text'].split()[1] for n in number['children'] if n['text'].startswith('member ')] == ['name=value']
+function = child(root, 'function name=sample ')
+assert len(child(function, 'block name=genericMembers ')['children']) == 1
+child(child(child(function, 'parameter name=value'), 'name name=Number'), 'block name=genericArguments ')
+body = child(function, 'block items=')
+required = child(body, 'local name=required ')
+defaulted = child(body, 'local name=defaulted ')
+assert 'application=no' in required['text'] and 'application=yes' in defaulted['text']
+assert 'items=' not in defaulted['text']
+supplied = child(body, 'local name=supplied ')
+assert len(child(supplied, 'block name=genericArguments ')['children']) == 2
+child(supplied, 'argument name=value')
+child(child(body, 'if'), 'binary name=<')
+macro = child(root, 'macro name=sampleMacro ')
+child(macro, 'block name=genericMembers ')
+child(child(child(macro, 'name name=Construct'), 'name name=Number'), 'block name=genericArguments ')
+annotation = child(child(child(root, 'construct name=Annotated'), 'attribute items='), 'attribute name=sampleMacro ')
+child(annotation, 'block name=genericArguments ')
+PY
+
+structural_assert() {
+    local source="$1" pattern="$2" description="$3"
+    (cd "$REPO_ROOT" && "$interpreter" --tree "$source") > "$work_root/tree" \
+        || fail "structural dump failed for $source"
+    /usr/bin/grep -qE "$pattern" "$work_root/tree" \
+        || fail "$description not represented in $source"
+}
+structural_assert Language/Core/Macros/Print.range 'closure name=node' "trailing closure"
+structural_assert Language/Core/Macros/Many.range 'switchCase' "switch case"
+structural_assert Language/Core/Macros/Many.range 'extension' "extension declaration"
+structural_assert Language/CLI/CommandLine.range 'emission' "environment emission block"
+structural_assert Language/CLI/CommandLine.range 'environment name=environment' "environment reference"
+structural_assert Language/Core/Extern.range 'parameter name=symbol' "macro parameter with default"
+structural_assert Language/Core/Syntax/Member.range 'attribute name=syntax span=' "retained @syntax template span"
+structural_assert Language/Compiler/Graph/Rendering.range 'stringPart' "string interpolation part"
+structural_assert Language/Core/File/UTF8Decoding.range 'enumCase name=success items=' "payload enum case"
+structural_assert Language/Project.range 'member name=author' "inferred member type"
+structural_assert Language/Core/Macros/Many.range 'manyLiteral|parameter name=ordering' "macro collection surface"
+
+# --- malformed input fails loudly, with a location -------------------------
+probe() { printf '%b' "$2" > "$work_root/$1.range"; }
+probe lexical-bad-character   'function f(): Int {\n    return 1 ~ 2\n}\n'
+probe lexical-bad-escape      'function f(): Int {\n    let s: String("a\\q")\n    return 0\n}\n'
+probe unterminated-construct  'construct C {\n    let x: Int\n'
+probe unterminated-template   '@syntax {\n    $a\n'
+probe malformed-parameter     'function f(let a: ): Int {\n    return 0\n}\n'
+probe malformed-parameter-two 'function f(: Int): Int {\n    return 0\n}\n'
+probe invalid-declaration     'construct C {\n    return 1\n}\n'
+probe invalid-member          'construct C {\n    let : Int\n}\n'
+probe trailing-tokens         'function f(): Int {\n    return 0\n}\n)\n'
+probe stray-close             'function f(): Int {\n    return 0\n}\n}\n'
+probe missing-block           'function f(): Int\n'
+probe bad-macro-signature     'macro m(a: ): Void {}\n'
+probe bad-switch-arm          'macro m(): Void {\n    switch x {\n    case\n    }\n}\n'
+
+probe generic-state 'construct C<state bits: 64> {}\n'
+probe generic-binding 'function f<binding bits: 64>(): Int { return 0 }\n'
+probe generic-derived 'macro m<derived bits: 64>(): Construct {}\n'
+probe generic-implicit 'construct C<bits: 64> {}\n'
+probe generic-empty 'construct C<> {}\n'
+probe generic-missing-rhs 'construct C<let bits: > {}\n'
+probe generic-second-colon 'construct C<let bits: Int: 64> {}\n'
+probe generic-missing-comma 'construct C<let bits: 64 let signed: true> {}\n'
+probe generic-unclosed 'construct C<let bits: 64 {}\n'
+probe generic-unlabeled 'construct C { let x: Int<64> }\n'
+probe generic-argument-empty 'construct C { let x: Int<bits: > }\n'
+
+for source in "$work_root"/*.range; do
+    name="$(basename "$source" .range)"
+    if "$interpreter" "$source" > "$work_root/out" 2> "$work_root/err"; then
+        fail "malformed input was accepted: $name"
+    fi
+    /usr/bin/grep -qE ':[0-9]+:[0-9]+:' "$work_root/err" \
+        || fail "failure lacked a source location: $name"
+done
+probes="$(ls -1 "$work_root"/*.range | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
+
+echo "recovery parser: $census probes=$probes"

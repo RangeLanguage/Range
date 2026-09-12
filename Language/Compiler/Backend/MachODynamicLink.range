@@ -1,0 +1,380 @@
+function machOIsRebaseRelocation(
+    let object: RelocatableObject,
+    let relocationID: Int
+): Bool {
+    if relocationID < 0 || relocationID >= object.relocations.count
+        || object.relocations.element(index: relocationID).kind
+            != .arm64Unsigned { return false }
+    if relocationID > 0 && object.relocations.element(
+        index: relocationID - 1
+    ).kind == .arm64Subtractor { return false }
+    return true
+}
+
+function machORebaseSiteOffset(
+    let object: RelocatableObject,
+    let layout: MachOImageLayout,
+    let relocationID: Int
+): Int {
+    let relocation: ObjectRelocation(object.relocations.element(
+        index: relocationID
+    ))
+    return layout.sectionAddresses.element(
+        index: relocation.sectionIndex
+    ).low + relocation.offset - layout.dataFileOffset
+}
+
+function machORebaseCount(let object: RelocatableObject): Int {
+    state count: Int(0)
+    state relocationID: Int(0)
+    while relocationID < object.relocations.count {
+        if machOIsRebaseRelocation(
+            object: object,
+            relocationID: relocationID
+        ) { count: count + 1 }
+        relocationID: relocationID + 1
+    }
+    return count
+}
+
+function machONextRebaseSite(
+    let object: RelocatableObject,
+    let layout: MachOImageLayout,
+    let site: Int
+): Int {
+    state next: Int(0 - 1)
+    state relocationID: Int(0)
+    while relocationID < object.relocations.count {
+        if machOIsRebaseRelocation(object: object, relocationID: relocationID) {
+            let candidate: Int(machORebaseSiteOffset(
+                object: object,
+                layout: layout,
+                relocationID: relocationID
+            ))
+            if candidate > site && candidate / 16384 == site / 16384
+                && (next < 0 || candidate < next) { next: candidate }
+        }
+        relocationID: relocationID + 1
+    }
+    return next
+}
+
+function machOEncodeRebasePointers(
+    let object: RelocatableObject,
+    let layout: MachOImageLayout
+): Int {
+    state relocationID: Int(0)
+    while relocationID < object.relocations.count {
+        if machOIsRebaseRelocation(object: object, relocationID: relocationID) {
+            let relocation: ObjectRelocation(object.relocations.element(
+                index: relocationID
+            ))
+            let target: Unsigned64(unsigned64AddingInt(
+                value: machOImageSymbolAddress(
+                    object: object,
+                    layout: layout,
+                    symbolID: relocation.symbolIndex
+                ),
+                addend: relocation.addend
+            ))
+            let site: Int(machORebaseSiteOffset(
+                object: object,
+                layout: layout,
+                relocationID: relocationID
+            ))
+            let nextSite: Int(machONextRebaseSite(
+                object: object,
+                layout: layout,
+                site: site
+            ))
+            state next: Int(0)
+            if nextSite >= 0 { next: (nextSite - site) / 4 }
+            if target.high != 1 || next < 0 || next > 4095
+                || binaryPatchUInt64LE(
+                    output: object.sections.element(
+                        index: relocation.sectionIndex
+                    ).bytes,
+                    offset: relocation.offset,
+                    value: Unsigned64(
+                        low: target.low,
+                        high: next * 524288
+                    )
+                ) != 0 { return 0 - 1 }
+        }
+        relocationID: relocationID + 1
+    }
+    return 0
+}
+
+function machOChainedFixups(
+    let object: RelocatableObject,
+    let imports: MachOImports,
+    let layout: MachOImageLayout
+): Binary {
+    let rebaseCount: Int(machORebaseCount(object: object))
+    state got: Binary(binary(capacity: 0))
+    if imports.symbolIDs.count != 0 {
+        got: object.sections.element(index: imports.gotSectionID).bytes
+    }
+    let pageCount: Int(layout.dataConstFileSize / 16384)
+    let dataPageCount: Int(layout.dataVMSize / 16384)
+    state dataConstStartsSize: Int(0)
+    if imports.symbolIDs.count != 0 {
+        dataConstStartsSize: 22 + pageCount * 2
+    }
+    state dataStartsSize: Int(0)
+    if rebaseCount != 0 { dataStartsSize: 22 + dataPageCount * 2 }
+    let dataStartsOffset: Int(24 + dataConstStartsSize)
+    let startsSize: Int(dataStartsOffset + dataStartsSize)
+    let importsOffset: Int(32 + startsSize)
+    let symbolsOffset: Int(importsOffset + imports.symbolIDs.count * 4)
+    let output: Binary(binary(capacity: symbolsOffset + imports.symbolIDs.count * 32))
+    state symbolPool: Binary(binary(capacity: imports.symbolIDs.count * 32))
+    binaryAppendUInt8(output: symbolPool, value: 0)
+    state nameOffsets: @many(capacity: imports.symbolIDs.count)
+    state importID: Int(0)
+    while importID < imports.symbolIDs.count {
+        let symbolID: Int(imports.symbolIDs.element(index: importID))
+        let symbol: ObjectSymbol(object.symbols.element(index: symbolID))
+        nameOffsets.append(element: symbolPool.bytes.count)
+        binaryAppendString(output: symbolPool, value: symbol.name)
+        binaryAppendUInt8(output: symbolPool, value: 0)
+        let gotOffset: Int(imports.gotOffsets.element(index: importID))
+        let gotAddress: Unsigned64(unsigned64AddingInt(
+            value: layout.sectionAddresses.element(index: imports.gotSectionID),
+            addend: gotOffset
+        ))
+        state next: Int(0)
+        if importID + 1 < imports.symbolIDs.count {
+            let nextAddress: Unsigned64(unsigned64AddingInt(
+                value: layout.sectionAddresses.element(index: imports.gotSectionID),
+                addend: imports.gotOffsets.element(index: importID + 1)
+            ))
+            if gotAddress.low / 16384 == nextAddress.low / 16384 {
+                next: unsigned64DifferenceInt(
+                    left: nextAddress,
+                    right: gotAddress
+                ) / 4
+            }
+        }
+        binaryPatchUInt64LE(
+            output: got,
+            offset: gotOffset,
+            value: Unsigned64(
+                low: importID,
+                high: 2147483648 + next * 524288
+            )
+        )
+        importID: importID + 1
+    }
+    if machOEncodeRebasePointers(object: object, layout: layout) != 0 {
+        return binary(capacity: 0)
+    }
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: 32)
+    binaryAppendUInt32LE(output: output, value: importsOffset)
+    binaryAppendUInt32LE(output: output, value: symbolsOffset)
+    binaryAppendUInt32LE(output: output, value: imports.symbolIDs.count)
+    binaryAppendUInt32LE(output: output, value: 1)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: 5)
+    binaryAppendUInt32LE(output: output, value: 0)
+    binaryAppendUInt32LE(output: output, value: 0)
+    state dataConstOffset: Int(0)
+    if imports.symbolIDs.count != 0 { dataConstOffset: 24 }
+    binaryAppendUInt32LE(output: output, value: dataConstOffset)
+    state dataOffset: Int(0)
+    if rebaseCount != 0 { dataOffset: dataStartsOffset }
+    binaryAppendUInt32LE(output: output, value: dataOffset)
+    binaryAppendUInt32LE(output: output, value: 0)
+    state page: Int(0)
+    if imports.symbolIDs.count != 0 {
+        binaryAppendUInt32LE(output: output, value: dataConstStartsSize)
+        binaryAppendUInt16LE(output: output, value: 16384)
+        binaryAppendUInt16LE(output: output, value: 6)
+        binaryAppendUInt64LE(
+            output: output,
+            value: unsigned64FromInt(value: layout.dataConstFileOffset)
+        )
+        binaryAppendUInt32LE(output: output, value: 0)
+        binaryAppendUInt16LE(output: output, value: pageCount)
+        while page < pageCount {
+            state first: Int(65535)
+            importID: 0
+            while importID < imports.symbolIDs.count && first == 65535 {
+                let address: Unsigned64(unsigned64AddingInt(
+                    value: layout.sectionAddresses.element(index: imports.gotSectionID),
+                    addend: imports.gotOffsets.element(index: importID)
+                ))
+                let segmentOffset: Int(address.low - layout.dataConstFileOffset)
+                if segmentOffset / 16384 == page {
+                    first: segmentOffset % 16384
+                }
+                importID: importID + 1
+            }
+            binaryAppendUInt16LE(output: output, value: first)
+            page: page + 1
+        }
+    }
+    if rebaseCount != 0 {
+        binaryAppendUInt32LE(output: output, value: dataStartsSize)
+        binaryAppendUInt16LE(output: output, value: 16384)
+        binaryAppendUInt16LE(output: output, value: 6)
+        binaryAppendUInt64LE(
+            output: output,
+            value: unsigned64FromInt(value: layout.dataFileOffset)
+        )
+        binaryAppendUInt32LE(output: output, value: 0)
+        binaryAppendUInt16LE(output: output, value: dataPageCount)
+        page: 0
+        while page < dataPageCount {
+            state firstRebase: Int(65535)
+            state relocationID: Int(0)
+            while relocationID < object.relocations.count {
+                if machOIsRebaseRelocation(
+                    object: object,
+                    relocationID: relocationID
+                ) {
+                    let site: Int(machORebaseSiteOffset(
+                        object: object,
+                        layout: layout,
+                        relocationID: relocationID
+                    ))
+                    if site / 16384 == page
+                        && site % 16384 < firstRebase {
+                        firstRebase: site % 16384
+                    }
+                }
+                relocationID: relocationID + 1
+            }
+            binaryAppendUInt16LE(output: output, value: firstRebase)
+            page: page + 1
+        }
+    }
+    importID: 0
+    while importID < imports.symbolIDs.count {
+        binaryAppendUInt32LE(
+            output: output,
+            value: 1 + nameOffsets.element(index: importID) * 512
+        )
+        importID: importID + 1
+    }
+    binaryAppendBinary(output: output, value: symbolPool)
+    binaryAlign(output: output, alignment: 8)
+    nameOffsets.destroy()
+    binaryDestroy(value: symbolPool)
+    return output
+}
+
+function machOMainExportsTrie(let entryOffset: Int): Binary {
+    let terminal: Binary(binary(capacity: 16))
+    binaryAppendULEB128(output: terminal, value: 0)
+    binaryAppendULEB128(output: terminal, value: entryOffset)
+    let output: Binary(binary(capacity: 32))
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendUInt8(output: output, value: 1)
+    binaryAppendString(output: output, value: "_main")
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAppendULEB128(output: output, value: 9)
+    binaryAppendULEB128(output: output, value: terminal.bytes.count)
+    binaryAppendBinary(output: output, value: terminal)
+    binaryAppendUInt8(output: output, value: 0)
+    binaryAlign(output: output, alignment: 8)
+    binaryDestroy(value: terminal)
+    return output
+}
+
+function machOAppendImageSection(
+    let output: Binary,
+    let object: RelocatableObject,
+    let layout: MachOImageLayout,
+    let sectionID: Int
+): Int {
+    let section: ObjectSection(object.sections.element(index: sectionID))
+    state size: Unsigned64(unsigned64FromInt(value: section.bytes.bytes.count))
+    state fileOffset: Int(layout.sectionFileOffsets.element(index: sectionID))
+    if section.kind == .zeroFill {
+        size: section.zeroFillSize
+        fileOffset: 0
+    }
+    state reserved2: Int(0)
+    if section.kind == .stubs { reserved2: 12 }
+    if machOAppendFixedName(output: output, name: section.sectionName, width: 16) != 0
+        || machOAppendFixedName(output: output, name: section.segmentName, width: 16) != 0
+        || binaryAppendUInt64LE(
+            output: output,
+            value: layout.sectionAddresses.element(index: sectionID)
+        ) != 0
+        || binaryAppendUInt64LE(output: output, value: size) != 0
+        || binaryAppendUInt32LE(output: output, value: fileOffset) != 0
+        || binaryAppendUInt32LE(
+            output: output,
+            value: machOAlignmentExponent(alignment: section.alignment)
+        ) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(
+            output: output,
+            value: machOSectionFlags(kind: section.kind)
+        ) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0
+        || binaryAppendUInt32LE(
+            output: output,
+            value: reserved2
+        ) != 0
+        || binaryAppendUInt32LE(output: output, value: 0) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function machOAppendImageSegment(
+    let output: Binary,
+    let object: RelocatableObject,
+    let layout: MachOImageLayout,
+    let segmentCode: Int,
+    let name: String,
+    let address: Unsigned64,
+    let vmSize: Int,
+    let fileOffset: Int,
+    let fileSize: Int,
+    let protection: Int
+): Int {
+    let sectionCount: Int(machOCountImageSections(
+        object: object,
+        segmentCode: segmentCode
+    ))
+    let commandOffset: Int(output.bytes.count)
+    if machOAppendSegmentCommand(
+        output: output,
+        name: name,
+        vmAddress: address,
+        vmSize: unsigned64FromInt(value: vmSize),
+        fileOffset: unsigned64FromInt(value: fileOffset),
+        fileSize: unsigned64FromInt(value: fileSize),
+        maximumProtection: protection,
+        initialProtection: protection,
+        sectionCount: sectionCount,
+        commandSize: 72 + sectionCount * 80
+    ) != 0 { return 0 - 1 }
+    if segmentCode == 2 && binaryPatchUInt32LE(
+        output: output,
+        offset: commandOffset + 68,
+        value: 16
+    ) != 0 { return 0 - 1 }
+    state sectionID: Int(0)
+    while sectionID < object.sections.count {
+        if machOImageSectionSegmentCode(
+            section: object.sections.element(index: sectionID)
+        ) == segmentCode
+            && machOAppendImageSection(
+                output: output,
+                object: object,
+                layout: layout,
+                sectionID: sectionID
+            ) != 0 { return 0 - 1 }
+        sectionID: sectionID + 1
+    }
+    return 0
+}

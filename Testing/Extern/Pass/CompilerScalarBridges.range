@@ -12,7 +12,7 @@ function stringTransientRegionMark(): Int
 
 @extern
 @builtin
-function stringTransientRegionReset(mark: Int): Int
+function stringTransientRegionReset(let mark: Int): Int
 
 @extern
 @builtin
@@ -20,7 +20,7 @@ function compilerMetricsReset(): Int
 
 @extern
 @builtin
-function compilerMetricsFunctionEnd(legacyParses: Int, recordBytes: Int): Int
+function compilerMetricsFunctionEnd(let legacyParses: Int, let recordBytes: Int): Int
 
 @main {
     if targetPointerBits() != 64 { return 1 }

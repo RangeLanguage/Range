@@ -1,7 +1,7 @@
 function compilerBConstructionArgumentExpression(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int,
-    ordinal: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int,
+    let ordinal: Int
 ): Int {
     state match: Int(0 - 1)
     state count: Int(0)
@@ -22,8 +22,8 @@ function compilerBConstructionArgumentExpression(
 }
 
 function compilerBConstructionArgumentCount(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Int {
     state count: Int(0)
     state row: Int(0)
@@ -36,8 +36,8 @@ function compilerBConstructionArgumentCount(
 }
 
 function compilerBConstructionComponentCount(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Int {
     state count: Int(0)
     state row: Int(0)
@@ -50,8 +50,8 @@ function compilerBConstructionComponentCount(
 }
 
 function compilerBConstructionExpressionFirstTokenID(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): Int {
     let row: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -61,8 +61,8 @@ function compilerBConstructionExpressionFirstTokenID(
 }
 
 function compilerBConstructionExpressionAfterLastTokenID(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): Int {
     let row: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -72,8 +72,8 @@ function compilerBConstructionExpressionAfterLastTokenID(
 }
 
 function compilerBConstructionTokenText(
-    revision: CompilerBSyntaxRevision,
-    tokenID: Int
+    let revision: SyntaxRevision,
+    let tokenID: Int
 ): String {
     if tokenID < 0 || tokenID >= revision.tokens.kinds.count { return "" }
     let token: CompilerBToken(compilerBRetainedToken(
@@ -84,9 +84,9 @@ function compilerBConstructionTokenText(
 }
 
 function compilerBConstructionDeclarationHasMember(
-    revision: CompilerBSyntaxRevision,
-    declarationSyntaxID: Int,
-    name: String
+    let revision: SyntaxRevision,
+    let declarationSyntaxID: Int,
+    let name: String
 ): Bool {
     state row: Int(0)
     while row < revision.members.syntaxIDs.count {
@@ -102,9 +102,9 @@ function compilerBConstructionDeclarationHasMember(
 }
 
 function compilerBConstructionIsCountedVectorDeclaration(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    declarationRow: Int
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let declarationRow: Int
 ): Bool {
     if declarationRow < 0 { return false }
     if declarationRow >= declarations.kindCodes.count { return false }
@@ -116,7 +116,7 @@ function compilerBConstructionIsCountedVectorDeclaration(
         paths: sourcePaths,
         index: sourceID
     ))
-    let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
         source: fileManagerReadFile(path: path),
         resolveRelationships: false
     ))
@@ -167,15 +167,15 @@ function compilerBConstructionIsCountedVectorDeclaration(
         }
         valid: manyCount == 1
     }
-    if compilerBSyntaxRevisionDestroy(revision: revision) != 0 { return false }
+    if syntaxRevisionDestroy(revision: revision) != 0 { return false }
     return valid
 }
 
 function compilerBConstructionDeclarationRow(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Int {
     let applicationRow: Int(revision.process.applications.syntaxIDs.firstIndex(
         value: applicationSyntaxID
@@ -211,8 +211,8 @@ function compilerBConstructionDeclarationRow(
 }
 
 function compilerBConstructionMultiplicity(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Int {
     let expressionSyntaxID: Int(compilerBConstructionArgumentExpression(
         revision: revision,
@@ -229,8 +229,8 @@ function compilerBConstructionMultiplicity(
 }
 
 function compilerBConstructionComponentTypeTokenID(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Int {
     let expressionSyntaxID: Int(compilerBConstructionArgumentExpression(
         revision: revision,
@@ -257,8 +257,8 @@ function compilerBConstructionComponentTypeTokenID(
 }
 
 function compilerBConstructionComponentValueIsFloat(
-    revision: CompilerBSyntaxRevision,
-    componentRow: Int
+    let revision: SyntaxRevision,
+    let componentRow: Int
 ): Bool {
     let first: Int(revision.process.components.firstValueTokenIDs.element(
         index: componentRow
@@ -291,10 +291,10 @@ function compilerBConstructionComponentValueIsFloat(
 }
 
 function compilerBConstructionComponentTypeCategory(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    sourceRevision: CompilerBSyntaxRevision,
-    typeTokenID: Int
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let sourceRevision: SyntaxRevision,
+    let typeTokenID: Int
 ): Int {
     if typeTokenID < 0 { return 0 }
     let typeToken: CompilerBToken(compilerBRetainedToken(
@@ -318,7 +318,7 @@ function compilerBConstructionComponentTypeCategory(
         paths: sourcePaths,
         index: declarationSourceID
     ))
-    let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
         source: fileManagerReadFile(path: path),
         resolveRelationships: false
     ))
@@ -339,16 +339,16 @@ function compilerBConstructionComponentTypeCategory(
         }
         row: row + 1
     }
-    if compilerBSyntaxRevisionDestroy(revision: revision) != 0 { return 0 }
+    if syntaxRevisionDestroy(revision: revision) != 0 { return 0 }
     return category
 }
 
 function compilerBConstructionComponentValueMatchesType(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    revision: CompilerBSyntaxRevision,
-    componentTypeTokenID: Int,
-    componentRow: Int
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let revision: SyntaxRevision,
+    let componentTypeTokenID: Int,
+    let componentRow: Int
 ): Bool {
     let category: Int(compilerBConstructionComponentTypeCategory(
         sourcePaths: sourcePaths,
@@ -391,8 +391,8 @@ function compilerBConstructionComponentValueMatchesType(
 }
 
 function compilerBConstructionLabelsValid(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Bool {
     state labeledCount: Int(0)
     state positionalCount: Int(0)
@@ -436,9 +436,9 @@ function compilerBConstructionLabelsValid(
 }
 
 function compilerBConstructionLabelCount(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int,
-    label: String
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int,
+    let label: String
 ): Int {
     state count: Int(0)
     state row: Int(0)
@@ -455,8 +455,8 @@ function compilerBConstructionLabelCount(
 }
 
 function compilerBConstructionMemberApplicationForName(
-    revision: CompilerBSyntaxRevision,
-    name: String
+    let revision: SyntaxRevision,
+    let name: String
 ): Int {
     state match: Int(0 - 1)
     state count: Int(0)
@@ -478,8 +478,8 @@ function compilerBConstructionMemberApplicationForName(
 }
 
 function compilerBConstructionMemberKindForName(
-    revision: CompilerBSyntaxRevision,
-    name: String
+    let revision: SyntaxRevision,
+    let name: String
 ): Int {
     state match: Int(0 - 1)
     state count: Int(0)
@@ -499,8 +499,8 @@ function compilerBConstructionMemberKindForName(
 }
 
 function compilerBConstructionMemberReplacementStartsAt(
-    revision: CompilerBSyntaxRevision,
-    tokenID: Int
+    let revision: SyntaxRevision,
+    let tokenID: Int
 ): Bool {
     if tokenID < 8 { return false }
     if tokenID + 2 >= revision.tokens.kinds.count { return false }
@@ -537,11 +537,11 @@ function compilerBConstructionMemberReplacementStartsAt(
 }
 
 function compilerBValidateCountedConstructionReplacements(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    revision: CompilerBSyntaxRevision,
-    path: String,
-    renderFacts: Bool
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let revision: SyntaxRevision,
+    let path: String,
+    let renderFacts: Bool
 ): Int {
     state failures: Int(0)
     state tokenID: Int(0)
@@ -577,10 +577,10 @@ function compilerBValidateCountedConstructionReplacements(
                 ))
                 if memberKind != compilerBParserMemberKindStateCode()
                     && memberKind != compilerBParserMemberKindBindingCode() {
-                    print(value: "\(path): $member requires a vector rooted in state or binding\n")
+                    print(message: "\(path): $member requires a vector rooted in state or binding\n")
                     failures: failures + 1
                 } else if renderFacts {
-                    print(value: "projectConstructionReplacement\towner=\(applicationSyntaxID)\treadRevision=\(applicationSyntaxID)\toccurrences=\(compilerBConstructionComponentCount(revision: revision, applicationSyntaxID: applicationSyntaxID))\tcommitCount=1\n")
+                    print(message: "projectConstructionReplacement\towner=\(applicationSyntaxID)\treadRevision=\(applicationSyntaxID)\toccurrences=\(compilerBConstructionComponentCount(revision: revision, applicationSyntaxID: applicationSyntaxID))\tcommitCount=1\n")
                 }
             }
         }
@@ -590,10 +590,10 @@ function compilerBValidateCountedConstructionReplacements(
 }
 
 function compilerBValidateCountedConstructionProjections(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    revision: CompilerBSyntaxRevision,
-    path: String
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let revision: SyntaxRevision,
+    let path: String
 ): Int {
     state failures: Int(0)
     state expressionRow: Int(0)
@@ -663,7 +663,7 @@ function compilerBValidateCountedConstructionProjections(
                         applicationSyntaxID: applicationSyntaxID,
                         label: projectionName
                     ) != 1 {
-                        print(value: "\(path): named access requires one unique labeled occurrence\n")
+                        print(message: "\(path): named access requires one unique labeled occurrence\n")
                         failures: failures + 1
                     }
                 }
@@ -675,9 +675,9 @@ function compilerBValidateCountedConstructionProjections(
 }
 
 function compilerBValidateCountedConstructions(
-    sourcePaths: String,
-    declarations: CompilerBProjectDeclarationStore,
-    renderFacts: Bool
+    let sourcePaths: String,
+    let declarations: CompilerBProjectDeclarationStore,
+    let renderFacts: Bool
 ): Int {
     state failures: Int(0)
     let sourceCount: Int(compilerBSourceSetLineCount(lines: sourcePaths))
@@ -687,7 +687,7 @@ function compilerBValidateCountedConstructions(
             paths: sourcePaths,
             index: sourceID
         ))
-        let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+        let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
             source: fileManagerReadFile(path: path),
             resolveRelationships: false
         ))
@@ -764,7 +764,7 @@ function compilerBValidateCountedConstructions(
                             id: TokenID(value: afterLastValueTokenID - 1)
                         ))
                         if renderFacts {
-                            print(value: "projectConstructionOccurrence\tsource=\(sourceID)\towner=\(applicationSyntaxID)\tordinal=\(revision.process.components.ordinals.element(index: occurrenceRow))\ttype=\(compilerBConstructionTokenText(revision: revision, tokenID: componentTypeTokenID))\tlabel=\(label)\tvalue=\(revision.source.substring(start: firstValue.start, end: lastValue.end))\n")
+                            print(message: "projectConstructionOccurrence\tsource=\(sourceID)\towner=\(applicationSyntaxID)\tordinal=\(revision.process.components.ordinals.element(index: occurrenceRow))\ttype=\(compilerBConstructionTokenText(revision: revision, tokenID: componentTypeTokenID))\tlabel=\(label)\tvalue=\(revision.source.substring(start: firstValue.start, end: lastValue.end))\n")
                         }
                     }
                     occurrenceRow: occurrenceRow + 1
@@ -796,7 +796,7 @@ function compilerBValidateCountedConstructions(
                     componentRow: componentRow + 1
                 }
                 if !valid {
-                    print(value: "\(path): counted construction requires two constructor values, an exact component count, uniform unique labels, and compatible component values\n")
+                    print(message: "\(path): counted construction requires two constructor values, an exact component count, uniform unique labels, and compatible component values\n")
                     failures: failures + 1
                 }
             }
@@ -815,7 +815,7 @@ function compilerBValidateCountedConstructions(
             path: path,
             renderFacts: renderFacts
         )
-        if compilerBSyntaxRevisionDestroy(revision: revision) != 0 {
+        if syntaxRevisionDestroy(revision: revision) != 0 {
             failures: failures + 1
         }
         sourceID: sourceID + 1

@@ -1,0 +1,219 @@
+function appleArm64EmitMoveImmediate(
+    let encoding: AppleArm64Encoding,
+    let register: Int,
+    let value: Int
+): Int {
+    state remaining: Int(value)
+    state firstBase: Int(unsigned32(high: 53888, low: 0))
+    if value < 0 {
+        remaining: 0 - value - 1
+        firstBase: unsigned32(high: 37504, low: 0)
+    }
+    state chunk: Int(remaining % 65536)
+    if appleArm64EmitWord(
+        encoding: encoding,
+        word: firstBase + chunk * 32 + register
+    ) != 0 { return 0 - 1 }
+    remaining: remaining / 65536
+    state shift: Int(1)
+    while shift < 4 {
+        chunk: remaining % 65536
+        if value < 0 { chunk: 65535 - chunk }
+        if (value >= 0 && chunk != 0) || (value < 0 && chunk != 65535) {
+            if appleArm64EmitWord(
+                encoding: encoding,
+                word: unsigned32(high: 62080, low: 0) + shift * 2097152
+                    + chunk * 32 + register
+            ) != 0 { return 0 - 1 }
+        }
+        remaining: remaining / 65536
+        shift: shift + 1
+    }
+    return 0
+}
+
+function appleArm64EmitAddOffset(
+    let encoding: AppleArm64Encoding,
+    let destination: Int,
+    let base: Int,
+    let offset: Int
+): Int {
+    if offset >= 0 && offset <= 4095 {
+        return appleArm64EmitWord(
+            encoding: encoding,
+            word: unsigned32(high: 37120, low: 0) + offset * 1024 + base * 32 + destination
+        )
+    }
+    if offset < 0 || appleArm64EmitMoveImmediate(
+        encoding: encoding,
+        register: 12,
+        value: offset
+    ) != 0 { return 0 - 1 }
+    state baseInstruction: Int(unsigned32(high: 35584, low: 0))
+    if base == 31 { baseInstruction: unsigned32(high: 35616, low: 24576) }
+    return appleArm64EmitWord(
+        encoding: encoding,
+        word: baseInstruction + 12 * 65536 + base * 32 + destination
+    )
+}
+
+function appleArm64EmitLoad(
+    let encoding: AppleArm64Encoding,
+    let destination: Int,
+    let base: Int,
+    let offset: Int,
+    let width: Int
+): Int {
+    state scale: Int(8)
+    state opcode: Int(unsigned32(high: 63808, low: 0))
+    state maximum: Int(32760)
+    if width == 1 {
+        scale: 1
+        opcode: 960495616
+        maximum: 4095
+    }
+    if offset >= 0 && offset <= maximum && offset % scale == 0 {
+        return appleArm64EmitWord(
+            encoding: encoding,
+            word: opcode + (offset / scale) * 1024
+                + base * 32 + destination
+        )
+    }
+    if appleArm64EmitAddOffset(
+        encoding: encoding,
+        destination: 12,
+        base: base,
+        offset: offset
+    ) != 0 { return 0 - 1 }
+    return appleArm64EmitWord(
+        encoding: encoding,
+        word: opcode + 12 * 32 + destination
+    )
+}
+
+function appleArm64EmitStore(
+    let encoding: AppleArm64Encoding,
+    let source: Int,
+    let base: Int,
+    let offset: Int,
+    let width: Int
+): Int {
+    state scale: Int(8)
+    state opcode: Int(unsigned32(high: 63744, low: 0))
+    state maximum: Int(32760)
+    if width == 1 {
+        scale: 1
+        opcode: 956301312
+        maximum: 4095
+    }
+    if offset >= 0 && offset <= maximum && offset % scale == 0 {
+        return appleArm64EmitWord(
+            encoding: encoding,
+            word: opcode + (offset / scale) * 1024 + base * 32 + source
+        )
+    }
+    if appleArm64EmitAddOffset(
+        encoding: encoding,
+        destination: 12,
+        base: base,
+        offset: offset
+    ) != 0 { return 0 - 1 }
+    return appleArm64EmitWord(
+        encoding: encoding,
+        word: opcode + 12 * 32 + source
+    )
+}
+
+function appleArm64EmitAdjustStack(
+    let encoding: AppleArm64Encoding,
+    let size: Int,
+    let subtract: Bool
+): Int {
+    if size < 0 { return 0 - 1 }
+    if size <= 4095 {
+        state opcode: Int(unsigned32(high: 37120, low: 0))
+        if subtract { opcode: unsigned32(high: 53504, low: 0) }
+        return appleArm64EmitWord(
+            encoding: encoding,
+            word: opcode + size * 1024 + 31 * 32 + 31
+        )
+    }
+    if appleArm64EmitMoveImmediate(
+        encoding: encoding,
+        register: 9,
+        value: size
+    ) != 0 { return 0 - 1 }
+    state opcode: Int(unsigned32(high: 35616, low: 24576))
+    if subtract { opcode: unsigned32(high: 52000, low: 24576) }
+    return appleArm64EmitWord(
+        encoding: encoding,
+        word: opcode + 9 * 65536 + 31 * 32 + 31
+    )
+}
+
+function appleArm64AppendFixup(
+    let encoding: AppleArm64Encoding,
+    let kindCode: Int,
+    let targetID: Int
+): Int {
+    let offset: Int(appleArm64TextSize(encoding: encoding))
+    if encoding.fixupOffsets.append(element: offset) != 0
+        || encoding.fixupKindCodes.append(element: kindCode) != 0
+        || encoding.fixupTargetIDs.append(element: targetID) != 0 {
+        return 0 - 1
+    }
+    return appleArm64EmitWord(encoding: encoding, word: 0)
+}
+
+function appleArm64PatchLocalFixups(let encoding: AppleArm64Encoding): Int {
+    state row: Int(0)
+    while row < encoding.fixupOffsets.count {
+        let offset: Int(encoding.fixupOffsets.element(index: row))
+        let kind: Int(encoding.fixupKindCodes.element(index: row))
+        let targetID: Int(encoding.fixupTargetIDs.element(index: row))
+        state target: Int(0 - 1)
+        state base: Int(0)
+        state bits: Int(26)
+        state multiplier: Int(1)
+        if kind == 1 {
+            target: encoding.blockOffsets.element(index: targetID)
+            base: 335544320
+        } else if kind == 2 {
+            target: encoding.functionOffsets.element(index: targetID)
+            base: unsigned32(high: 37888, low: 0)
+        } else if kind == 3 {
+            target: encoding.blockOffsets.element(index: targetID)
+            base: unsigned32(high: 46080, low: 9)
+            bits: 19
+            multiplier: 32
+        }
+        let displacement: Int(target - offset)
+        if target < 0 || displacement % 4 != 0 {
+            return appleArm64Fail(
+                encoding: encoding,
+                diagnostic: "ARM64 local fixup has no aligned target"
+            )
+        }
+        state immediate: Int(displacement / 4)
+        let limit: Int(appleArm64PowerOfTwo(exponent: bits))
+        if immediate < 0 { immediate: immediate + limit }
+        if immediate < 0 || immediate >= limit
+            || binaryPatchUInt32LE(
+                output: appleArm64Text(encoding: encoding),
+                offset: offset,
+                value: base + immediate * multiplier
+            ) != 0 {
+            return appleArm64Fail(
+                encoding: encoding,
+                diagnostic: "ARM64 local branch is out of range"
+            )
+        }
+        row: row + 1
+    }
+    return 0
+}
+
+function appleArm64RegisterForArgument(let ordinal: Int): Int {
+    if ordinal >= 0 && ordinal < 8 { return ordinal }
+    return 0 - 1
+}

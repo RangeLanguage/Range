@@ -1,18 +1,33 @@
 @syntax {
     $macros
-    function $identity $transformation {
+    function $identity<$generics>($inputs): $result {
         $members
     }
 }
 @syntax {
     $macros
-    function $identity $transformation
+    function $identity<$generics>($inputs): $result
+}
+@syntax {
+    $macros
+    function $identity($inputs): $result {
+        $members
+    }
+}
+@syntax {
+    $macros
+    function $identity($inputs): $result
 }
 construct Function {
     @many
     state macros: Macro
     state identity: Identity
-    state transformation: Transformation
+
+    @many
+    state generics: Let
+    @many
+    state inputs: Let | Binding
+    state result: @syntax
 
     @many
     state members: @syntax
@@ -54,21 +69,6 @@ construct Body {
 
     @many
     derived applications: Application
-}
-
-construct Selection {
-    @many
-    binding conditions: Semantic
-
-    @many
-    state branches: SelectionCase
-}
-
-@syntax($range: $value)
-construct SelectionCase {
-    binding range: @syntax
-    state value: @syntax
-    binding successor: Execution
 }
 
 @syntax {

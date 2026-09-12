@@ -1,64 +1,64 @@
-@modifier(.layout)
-function alignment(_ vertical: VerticalAlignment, _ horizontal: HorizontalAlignment): LayoutTransform {
+@modifier(category: .layout)
+function alignment(let vertical: VerticalAlignment, let horizontal: HorizontalAlignment): LayoutTransform {
     return LayoutTransform(.alignment(value: LayoutAlignment(vertical: vertical, horizontal: horizontal)))
 }
 
-@modifier(.layout)
-function minWidth(_ value: Float): LayoutTransform {
+@modifier(category: .layout)
+function minWidth(let value: Float): LayoutTransform {
     return LayoutTransform(.minWidth(value: NonnegativeDimension(value: value)))
 }
 
-@modifier(.layout)
-function idealWidth(_ value: Float): LayoutTransform {
+@modifier(category: .layout)
+function idealWidth(let value: Float): LayoutTransform {
     return LayoutTransform(.idealWidth(value: NonnegativeDimension(value: value)))
 }
 
-@modifier(.layout)
-function maxWidth(_ value: Float): LayoutTransform {
+@modifier(category: .layout)
+function maxWidth(let value: Float): LayoutTransform {
     return LayoutTransform(.maxWidth(value: NonnegativeDimension(value: value)))
 }
 
-@modifier(.layout)
-function minHeight(_ value: Float): LayoutTransform {
+@modifier(category: .layout)
+function minHeight(let value: Float): LayoutTransform {
     return LayoutTransform(.minHeight(value: NonnegativeDimension(value: value)))
 }
 
-@modifier(.layout)
-function idealHeight(_ value: Float): LayoutTransform {
+@modifier(category: .layout)
+function idealHeight(let value: Float): LayoutTransform {
     return LayoutTransform(.idealHeight(value: NonnegativeDimension(value: value)))
 }
 
-@modifier(.layout)
-function maxHeight(_ value: Float): LayoutTransform {
+@modifier(category: .layout)
+function maxHeight(let value: Float): LayoutTransform {
     return LayoutTransform(.maxHeight(value: NonnegativeDimension(value: value)))
 }
 
-@modifier(.layout)
-function parentWidth(_ fraction: Float): LayoutTransform {
+@modifier(category: .layout)
+function parentWidth(let fraction: Float): LayoutTransform {
     return LayoutTransform(.parentWidth(fraction: ParentFraction(value: fraction)))
 }
 
-@modifier(.layout)
-function parentHeight(_ fraction: Float): LayoutTransform {
+@modifier(category: .layout)
+function parentHeight(let fraction: Float): LayoutTransform {
     return LayoutTransform(.parentHeight(fraction: ParentFraction(value: fraction)))
 }
 
-@modifier(.layout)
-function padding(_ value: EdgeInsets): LayoutTransform {
+@modifier(category: .layout)
+function padding(let value: EdgeInsets): LayoutTransform {
     return LayoutTransform(.padding(value: value))
 }
 
-@modifier(.layout)
-function position(x: Float, y: Float): LayoutTransform {
+@modifier(category: .layout)
+function position(let x: Float, let y: Float): LayoutTransform {
     return LayoutTransform(.position(value: Vector(2, Float) { x: x, y: y }))
 }
 
-@modifier(.layout)
-function offset(x: Float, y: Float): LayoutTransform {
+@modifier(category: .layout)
+function offset(let x: Float, let y: Float): LayoutTransform {
     return LayoutTransform(.offset(value: Vector(2, Float) { x: x, y: y }))
 }
 
-@modifier(.layout)
-function layer(_ value: Int): LayoutTransform {
+@modifier(category: .layout)
+function layer(let value: Int): LayoutTransform {
     return LayoutTransform(.layer(value: value))
 }

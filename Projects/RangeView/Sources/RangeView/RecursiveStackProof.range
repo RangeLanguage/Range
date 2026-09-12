@@ -8,30 +8,30 @@ construct RecursiveStackProof {
         Stack(.vertical, spacing: 12.0) {
             Stack(.horizontal, spacing: 8.0) {
                 Rectangle()
-                    .minWidth(40.0)
-                    .idealWidth(120.0)
-                    .maxWidth(240.0)
-                    .idealHeight(80.0)
-                    .layer(1)
+                    .minWidth(value: 40.0)
+                    .idealWidth(value: 120.0)
+                    .maxWidth(value: 240.0)
+                    .idealHeight(value: 80.0)
+                    .layer(value: 1)
 
                 Rectangle()
-                    .parentWidth(0.5)
-                    .minHeight(60.0)
-                    .maxHeight(160.0)
-                    .layer(1)
+                    .parentWidth(fraction: 0.5)
+                    .minHeight(value: 60.0)
+                    .maxHeight(value: 160.0)
+                    .layer(value: 1)
             }
-            .parentWidth(1.0)
-            .alignment(.center, .center)
+            .parentWidth(fraction: 1.0)
+            .alignment(vertical: .center, horizontal: .center)
 
             Rectangle()
-                .minWidth(80.0)
-                .idealWidth(320.0)
-                .maxWidth(640.0)
-                .parentHeight(0.25)
+                .minWidth(value: 80.0)
+                .idealWidth(value: 320.0)
+                .maxWidth(value: 640.0)
+                .parentHeight(fraction: 0.25)
                 .offset(x: 4.0, y: 6.0)
-                .layer(2)
+                .layer(value: 2)
         }
-        .padding(EdgeInsets(top: 20.0, leading: 24.0, bottom: 20.0, trailing: 24.0))
+        .padding(value: EdgeInsets(top: 20.0, leading: 24.0, bottom: 20.0, trailing: 24.0))
         .position(x: 0.0, y: 0.0)
     }
 }

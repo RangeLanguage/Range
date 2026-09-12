@@ -1,0 +1,341 @@
+function appleArm64EncodeOperation(
+    let encoding: AppleArm64Encoding,
+    let graph: ProgramGraph,
+    let operationID: Int,
+    let frameSize: Int
+): Int {
+    let kind: Int(graph.operationKindCodes.element(index: operationID))
+    if kind == operationKindCode(kind: .constant) {
+        let valueID: Int(programGraphProducedValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        if valueID < 0 || graph.valueRepresentationCodes.element(index: valueID)
+            == valueRepresentationCode(representation: .address) {
+            return appleArm64Fail(
+                encoding: encoding,
+                diagnostic: "Address-backed constants are not materialized"
+            )
+        }
+        if appleArm64EmitMoveImmediate(
+            encoding: encoding,
+            register: 9,
+            value: graph.operationImmediates.element(index: operationID)
+        ) != 0 { return 0 - 1 }
+        return appleArm64EmitStore(
+            encoding: encoding,
+            source: 9,
+            base: 31,
+            offset: programGraphAppleArm64ValueOffset(valueID: valueID),
+            width: 8
+        )
+    }
+    if kind == operationKindCode(kind: .allocate) {
+        let valueID: Int(programGraphProducedValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        if valueID < 0 || appleArm64EmitAddOffset(
+            encoding: encoding,
+            destination: 9,
+            base: 31,
+            offset: programGraphAppleArm64StorageOffset(
+                graph: graph,
+                operationID: operationID
+            )
+        ) != 0 { return 0 - 1 }
+        return appleArm64EmitStore(
+            encoding: encoding,
+            source: 9,
+            base: 31,
+            offset: programGraphAppleArm64ValueOffset(valueID: valueID),
+            width: 8
+        )
+    }
+    if kind == operationKindCode(kind: .store) {
+        let address: Int(programGraphOperandValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        let value: Int(programGraphOperandValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 1
+        ))
+        if address < 0 || value < 0
+            || appleArm64EmitLoad(
+                encoding: encoding,
+                destination: 9,
+                base: 31,
+                offset: programGraphAppleArm64ValueOffset(valueID: address),
+                width: 8
+            ) != 0
+            || appleArm64EmitLoad(
+                encoding: encoding,
+                destination: 10,
+                base: 31,
+                offset: programGraphAppleArm64ValueOffset(valueID: value),
+                width: 8
+            ) != 0 { return 0 - 1 }
+        return appleArm64EmitStore(
+            encoding: encoding,
+            source: 10,
+            base: 9,
+            offset: 0,
+            width: graph.operationWidths.element(index: operationID)
+        )
+    }
+    if kind == operationKindCode(kind: .load) {
+        let address: Int(programGraphOperandValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        let result: Int(programGraphProducedValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        if address < 0 || result < 0
+            || appleArm64EmitLoad(
+                encoding: encoding,
+                destination: 9,
+                base: 31,
+                offset: programGraphAppleArm64ValueOffset(valueID: address),
+                width: 8
+            ) != 0
+            || appleArm64EmitLoad(
+                encoding: encoding,
+                destination: 10,
+                base: 9,
+                offset: 0,
+                width: graph.operationWidths.element(index: operationID)
+            ) != 0 { return 0 - 1 }
+        return appleArm64EmitStore(
+            encoding: encoding,
+            source: 10,
+            base: 31,
+            offset: programGraphAppleArm64ValueOffset(valueID: result),
+            width: 8
+        )
+    }
+    if kind == operationKindCode(kind: .address) {
+        let baseValue: Int(programGraphOperandValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        let result: Int(programGraphProducedValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        if baseValue < 0 || result < 0
+            || appleArm64EmitLoad(
+                encoding: encoding,
+                destination: 9,
+                base: 31,
+                offset: programGraphAppleArm64ValueOffset(valueID: baseValue),
+                width: 8
+            ) != 0
+            || appleArm64EmitAddOffset(
+                encoding: encoding,
+                destination: 9,
+                base: 9,
+                offset: graph.operationImmediates.element(index: operationID)
+            ) != 0 { return 0 - 1 }
+        return appleArm64EmitStore(
+            encoding: encoding,
+            source: 9,
+            base: 31,
+            offset: programGraphAppleArm64ValueOffset(valueID: result),
+            width: 8
+        )
+    }
+    if kind == operationKindCode(kind: .call) {
+        let operandCount: Int(programGraphOperandCount(
+            graph: graph,
+            operationID: operationID
+        ))
+        state stackSize: Int(0)
+        if operandCount > 8 {
+            stackSize: targetLayoutAlignedSize(
+                layout: targetLayout(architecture: .arm64),
+                size: (operandCount - 8) * 8
+            )
+            if appleArm64EmitWord(
+                encoding: encoding,
+                word: unsigned32(high: 37120, low: 1003)
+            ) != 0 || appleArm64EmitAdjustStack(
+                encoding: encoding,
+                size: stackSize,
+                subtract: true
+            ) != 0 { return 0 - 1 }
+        }
+        state ordinal: Int(0)
+        while ordinal < operandCount {
+            let valueID: Int(programGraphOperandValue(
+                graph: graph,
+                operationID: operationID,
+                ordinal: ordinal
+            ))
+            if valueID < 0 { return 0 - 1 }
+            if ordinal < 8 {
+                if appleArm64EmitLoad(
+                    encoding: encoding,
+                    destination: appleArm64RegisterForArgument(ordinal: ordinal),
+                    base: 31,
+                    offset: programGraphAppleArm64ValueOffset(valueID: valueID)
+                        + stackSize,
+                    width: 8
+                ) != 0 { return 0 - 1 }
+            } else if appleArm64EmitLoad(
+                encoding: encoding,
+                destination: 9,
+                base: 11,
+                offset: programGraphAppleArm64ValueOffset(valueID: valueID),
+                width: 8
+            ) != 0 || appleArm64EmitStore(
+                encoding: encoding,
+                source: 9,
+                base: 31,
+                offset: (ordinal - 8) * 8,
+                width: 8
+            ) != 0 { return 0 - 1 }
+            ordinal: ordinal + 1
+        }
+        let target: Int(graph.operationTargetFunctionIDs.element(
+            index: operationID
+        ))
+        if target < 0 || target >= graph.functionSourceIDs.count {
+            return 0 - 1
+        }
+        if graph.functionExternCodes.element(index: target) == 0 {
+            if appleArm64AppendFixup(
+                encoding: encoding,
+                kindCode: 2,
+                targetID: target
+            ) != 0 { return 0 - 1 }
+        } else {
+            let symbol: Int(objectEnsureUndefinedSymbol(
+                object: encoding.object,
+                name: "_\(programGraphFunctionName(graph: graph, functionID: target))"
+            ))
+            let callOffset: Int(appleArm64TextSize(encoding: encoding))
+            if appleArm64EmitWord(
+                encoding: encoding,
+                word: unsigned32(high: 37888, low: 0)
+            ) != 0 || objectAppendRelocation(
+                object: encoding.object,
+                sectionIndex: encoding.textSectionIndex,
+                offset: callOffset,
+                kind: .arm64Branch26,
+                symbolIndex: symbol,
+                addend: 0,
+                pcRelative: true,
+                width: 4
+            ) != 0 { return 0 - 1 }
+        }
+        if stackSize != 0 && appleArm64EmitAdjustStack(
+            encoding: encoding,
+            size: stackSize,
+            subtract: false
+        ) != 0 { return 0 - 1 }
+        let result: Int(programGraphProducedValue(
+            graph: graph,
+            operationID: operationID,
+            ordinal: 0
+        ))
+        if result >= 0 {
+            return appleArm64EmitStore(
+                encoding: encoding,
+                source: 0,
+                base: 31,
+                offset: programGraphAppleArm64ValueOffset(valueID: result),
+                width: 8
+            )
+        }
+        return 0
+    }
+    if kind == operationKindCode(kind: .compare) {
+        let left: Int(programGraphOperandValue(graph: graph, operationID: operationID, ordinal: 0))
+        let right: Int(programGraphOperandValue(graph: graph, operationID: operationID, ordinal: 1))
+        let result: Int(programGraphProducedValue(graph: graph, operationID: operationID, ordinal: 0))
+        if left < 0 || right < 0 || result < 0
+            || graph.valueRepresentationCodes.element(index: left)
+                != valueRepresentationCode(representation: .scalar)
+            || graph.valueRepresentationCodes.element(index: right)
+                != valueRepresentationCode(representation: .scalar)
+            || appleArm64EmitLoad(encoding: encoding, destination: 9, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: left), width: 8) != 0
+            || appleArm64EmitLoad(encoding: encoding, destination: 10, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: right), width: 8) != 0
+            || appleArm64EmitWord(encoding: encoding, word: unsigned32(high: 60170, low: 319)) != 0 {
+            return 0 - 1
+        }
+        let comparison: Int(graph.operationImmediates.element(index: operationID))
+        state cset: Int(unsigned32(high: 39583, low: 6121))
+        if comparison == compilerBComparisonOperatorNotEqualCode() { cset: unsigned32(high: 39583, low: 2025) }
+        if comparison == compilerBComparisonOperatorLessCode() { cset: unsigned32(high: 39583, low: 42985) }
+        if comparison == compilerBComparisonOperatorLessOrEqualCode() { cset: unsigned32(high: 39583, low: 51177) }
+        if comparison == compilerBComparisonOperatorGreaterCode() { cset: unsigned32(high: 39583, low: 55273) }
+        if comparison == compilerBComparisonOperatorGreaterOrEqualCode() { cset: unsigned32(high: 39583, low: 47081) }
+        if appleArm64EmitWord(encoding: encoding, word: cset) != 0 { return 0 - 1 }
+        return appleArm64EmitStore(encoding: encoding, source: 9, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: result), width: 8)
+    }
+    if kind == operationKindCode(kind: .logical) {
+        let left: Int(programGraphOperandValue(graph: graph, operationID: operationID, ordinal: 0))
+        let right: Int(programGraphOperandValue(graph: graph, operationID: operationID, ordinal: 1))
+        let result: Int(programGraphProducedValue(graph: graph, operationID: operationID, ordinal: 0))
+        if left < 0 || result < 0 || appleArm64EmitLoad(encoding: encoding, destination: 9, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: left), width: 8) != 0 { return 0 - 1 }
+        let logical: Int(graph.operationImmediates.element(index: operationID))
+        if logical == compilerBLogicalOperatorNotCode() {
+            if appleArm64EmitMoveImmediate(encoding: encoding, register: 10, value: 1) != 0
+                || appleArm64EmitWord(encoding: encoding, word: unsigned32(high: 51722, low: 297)) != 0 { return 0 - 1 }
+        } else {
+            if right < 0 || appleArm64EmitLoad(encoding: encoding, destination: 10, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: right), width: 8) != 0 { return 0 - 1 }
+            state word: Int(unsigned32(high: 43530, low: 297))
+            if logical == compilerBLogicalOperatorAndCode() { word: unsigned32(high: 35338, low: 297) }
+            if appleArm64EmitWord(encoding: encoding, word: word) != 0 { return 0 - 1 }
+        }
+        return appleArm64EmitStore(encoding: encoding, source: 9, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: result), width: 8)
+    }
+    if kind == operationKindCode(kind: .branch) {
+        let predicate: Int(programGraphOperandValue(graph: graph, operationID: operationID, ordinal: 0))
+        let sourceBlock: Int(graph.operationBlockIDs.element(index: operationID))
+        state falseBlock: Int(0 - 1)
+        state trueBlock: Int(0 - 1)
+        state row: Int(0)
+        while row < graph.controlSourceBlockIDs.count {
+            if graph.controlSourceBlockIDs.element(index: row) == sourceBlock {
+                if predicate < 0 { trueBlock: graph.controlTargetBlockIDs.element(index: row) }
+                else if graph.controlExpectedValues.element(index: row) == 0 { falseBlock: graph.controlTargetBlockIDs.element(index: row) }
+                else { trueBlock: graph.controlTargetBlockIDs.element(index: row) }
+            }
+            row: row + 1
+        }
+        if predicate < 0 { return appleArm64AppendFixup(encoding: encoding, kindCode: 1, targetID: trueBlock) }
+        if falseBlock < 0 || trueBlock < 0
+            || appleArm64EmitLoad(encoding: encoding, destination: 9, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: predicate), width: 8) != 0
+            || appleArm64AppendFixup(encoding: encoding, kindCode: 3, targetID: falseBlock) != 0 {
+            return 0 - 1
+        }
+        return appleArm64AppendFixup(encoding: encoding, kindCode: 1, targetID: trueBlock)
+    }
+    if kind == operationKindCode(kind: .return) {
+        let valueID: Int(programGraphOperandValue(graph: graph, operationID: operationID, ordinal: 0))
+        if valueID >= 0 {
+            if appleArm64EmitLoad(encoding: encoding, destination: 0, base: 31, offset: programGraphAppleArm64ValueOffset(valueID: valueID), width: 8) != 0 { return 0 - 1 }
+        } else if appleArm64EmitMoveImmediate(encoding: encoding, register: 0, value: 0) != 0 { return 0 - 1 }
+        if appleArm64EmitAdjustStack(encoding: encoding, size: frameSize, subtract: false) != 0
+            || appleArm64EmitWord(encoding: encoding, word: unsigned32(high: 43201, low: 31741)) != 0
+            || appleArm64EmitWord(encoding: encoding, word: unsigned32(high: 54879, low: 960)) != 0 { return 0 - 1 }
+        return 0
+    }
+    if kind == operationKindCode(kind: .destroy) { return 0 }
+    return appleArm64Fail(
+        encoding: encoding,
+        diagnostic: "ProgramGraph operation is not supported by ARM64"
+    )
+}

@@ -1,0 +1,8 @@
+@collection
+construct Array<let Element: @type> {
+    state count: 0
+
+    derived isEmpty: Bool {
+        count == 0
+    }
+}

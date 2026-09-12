@@ -1,7 +1,7 @@
 @view
 construct RangeViewHome {
     derived body: @view {
-        Text("RangeView draws regular values.")
+        Text(value: "RangeView draws regular values.")
         Stack(.vertical, spacing: 10) {
             Rectangle(material: Aero())
         }

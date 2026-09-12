@@ -1,0 +1,266 @@
+construct ProjectTargetSelection {
+    let target: CompilationTarget
+    let valid: Bool
+    let diagnostic: String
+}
+
+function compilerBProjectDeclarationRow(
+    let declarations: CompilerBProjectDeclarationStore,
+    let sourceID: Int,
+    let syntaxID: Int
+): Int {
+    state row: Int(0)
+    while row < declarations.syntaxIDs.count {
+        if declarations.sourceIDs.element(index: row) == sourceID
+            && declarations.syntaxIDs.element(index: row) == syntaxID {
+            return row
+        }
+        row: row + 1
+    }
+    return 0 - 1
+}
+
+function compilerBProjectMacroApplicationIsNamed(
+    let revision: CompilerBProjectRevision,
+    let applicationRow: Int,
+    let name: String
+): Bool {
+    let declarationRow: Int(compilerBProjectDeclarationRow(
+        declarations: revision.declarations,
+        sourceID: revision.macroApplications.declarationSourceIDs.element(
+            index: applicationRow
+        ),
+        syntaxID: revision.macroApplications.declarationSyntaxIDs.element(
+            index: applicationRow
+        )
+    ))
+    if declarationRow < 0 { return false }
+    return compilerBProjectDeclarationName(
+        sourcePaths: revision.sourcePaths,
+        declarations: revision.declarations,
+        row: declarationRow
+    ) == name
+}
+
+function compilerBProjectTargetApplicationIsAttachedToProject(
+    let revision: CompilerBProjectRevision,
+    let applicationRow: Int
+): Bool {
+    if !compilerBProjectMacroApplicationIsNamed(
+        revision: revision,
+        applicationRow: applicationRow,
+        name: "target"
+    ) { return false }
+    let sourceID: Int(revision.macroApplications.targetSourceIDs.element(
+        index: applicationRow
+    ))
+    let syntaxID: Int(revision.macroApplications.targetSyntaxIDs.element(
+        index: applicationRow
+    ))
+    state row: Int(0)
+    while row < revision.macroApplications.syntaxIDs.count {
+        if compilerBProjectMacroApplicationIsNamed(
+                revision: revision,
+                applicationRow: row,
+                name: "project"
+            )
+            && revision.macroApplications.targetSourceIDs.element(index: row)
+                == sourceID
+            && revision.macroApplications.targetSyntaxIDs.element(index: row)
+                == syntaxID {
+            return true
+        }
+        row: row + 1
+    }
+    return false
+}
+
+function compilerBProjectMacroArgumentLabel(
+    let arguments: CompilerBProjectMacroArgumentStore,
+    let row: Int
+): String {
+    state result: String("")
+    let start: Int(arguments.labelByteStarts.element(index: row))
+    let count: Int(arguments.labelByteCounts.element(index: row))
+    state index: Int(0)
+    while index < count {
+        stringAppendByte(
+            value: result,
+            byte: arguments.labelBytes.element(index: start + index)
+        )
+        index: index + 1
+    }
+    return result
+}
+
+function compilerBProjectMacroArgumentValue(
+    let revision: CompilerBProjectRevision,
+    let applicationRow: Int,
+    let label: String
+): String {
+    let applicationSyntaxID: Int(
+        revision.macroApplications.syntaxIDs.element(index: applicationRow)
+    )
+    state row: Int(0)
+    while row < revision.macroApplications.arguments.applicationSyntaxIDs.count {
+        if revision.macroApplications.arguments.applicationSyntaxIDs.element(
+                index: row
+            ) == applicationSyntaxID
+            && compilerBProjectMacroArgumentLabel(
+                arguments: revision.macroApplications.arguments,
+                row: row
+            ) == label {
+            let sourceID: Int(
+                revision.macroApplications.arguments.sourceIDs.element(index: row)
+            )
+            let source: String(fileManagerReadFile(path: compilerBSourceSetPathAt(
+                paths: revision.sourcePaths,
+                index: sourceID
+            )))
+            return source.substring(
+                start: revision.macroApplications.arguments.valueSourceStarts.element(
+                    index: row
+                ),
+                end: revision.macroApplications.arguments.valueSourceEnds.element(
+                    index: row
+                )
+            )
+        }
+        row: row + 1
+    }
+    return ""
+}
+
+function compilerBTargetDecimal(let value: String): Int {
+    state result: Int(0)
+    state index: Int(0)
+    while index < value.count {
+        let byte: Int(value.byte(index: index))
+        if byte < 48 || byte > 57 { return 0 - 1 }
+        result: result * 10 + byte - 48
+        index: index + 1
+    }
+    return result
+}
+
+function compilerBProjectTargetIsDefault(
+    let revision: CompilerBProjectRevision,
+    let applicationRow: Int
+): Bool {
+    return compilerBProjectMacroArgumentValue(
+        revision: revision,
+        applicationRow: applicationRow,
+        label: "default"
+    ) == "true"
+}
+
+function compilerBProjectTargetAt(
+    let revision: CompilerBProjectRevision,
+    let applicationRow: Int
+): ProjectTargetSelection {
+    let platformName: String(compilerBProjectMacroArgumentValue(
+        revision: revision,
+        applicationRow: applicationRow,
+        label: "platform"
+    ))
+    let architectureName: String(compilerBProjectMacroArgumentValue(
+        revision: revision,
+        applicationRow: applicationRow,
+        label: "architecture"
+    ))
+    state platform: TargetPlatform(.bare)
+    state architecture: TargetArchitecture(.arm64)
+    state valid: Bool(true)
+    state diagnostic: String("")
+    if platformName == ".macOS" { platform: .macOS }
+    else if platformName == ".linux" { platform: .linux }
+    else if platformName == ".bare" { platform: .bare }
+    else {
+        valid: false
+        diagnostic: "Project target has an unknown platform"
+    }
+    if architectureName == ".arm64" { architecture: .arm64 }
+    else if architectureName == ".riscv64" { architecture: .riscv64 }
+    else {
+        valid: false
+        diagnostic: "Project target has an unknown architecture"
+    }
+    state major: Int(0)
+    state minor: Int(0)
+    let majorText: String(compilerBProjectMacroArgumentValue(
+        revision: revision,
+        applicationRow: applicationRow,
+        label: "minimumMajorVersion"
+    ))
+    let minorText: String(compilerBProjectMacroArgumentValue(
+        revision: revision,
+        applicationRow: applicationRow,
+        label: "minimumMinorVersion"
+    ))
+    if majorText != "" { major: compilerBTargetDecimal(value: majorText) }
+    if minorText != "" { minor: compilerBTargetDecimal(value: minorText) }
+    if major < 0 || minor < 0 {
+        valid: false
+        diagnostic: "Project target has an invalid minimum version"
+    }
+    return ProjectTargetSelection(
+        target: CompilationTarget(
+            architecture: architecture,
+            platform: platform,
+            minimumMajorVersion: major,
+            minimumMinorVersion: minor
+        ),
+        valid: valid,
+        diagnostic: diagnostic
+    )
+}
+
+function compilerBSelectProjectTarget(
+    let revision: CompilerBProjectRevision
+): ProjectTargetSelection {
+    state targetCount: Int(0)
+    state defaultCount: Int(0)
+    state selectedRow: Int(0 - 1)
+    state row: Int(0)
+    while row < revision.macroApplications.syntaxIDs.count {
+        if compilerBProjectTargetApplicationIsAttachedToProject(
+            revision: revision,
+            applicationRow: row
+        ) {
+            targetCount: targetCount + 1
+            if selectedRow < 0 { selectedRow: row }
+            if compilerBProjectTargetIsDefault(
+                revision: revision,
+                applicationRow: row
+            ) {
+                defaultCount: defaultCount + 1
+                selectedRow: row
+            }
+        }
+        row: row + 1
+    }
+    let fallback: CompilationTarget(
+        architecture: .arm64,
+        platform: .bare,
+        minimumMajorVersion: 0,
+        minimumMinorVersion: 0
+    )
+    if targetCount == 0 {
+        return ProjectTargetSelection(
+            target: fallback,
+            valid: false,
+            diagnostic: "Project must declare at least one @target"
+        )
+    }
+    if targetCount > 1 && defaultCount != 1 {
+        return ProjectTargetSelection(
+            target: fallback,
+            valid: false,
+            diagnostic: "Project with multiple targets must declare one default"
+        )
+    }
+    return compilerBProjectTargetAt(
+        revision: revision,
+        applicationRow: selectedRow
+    )
+}

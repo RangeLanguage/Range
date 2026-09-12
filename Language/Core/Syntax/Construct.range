@@ -1,5 +1,11 @@
 @syntax {
     $macros
+    construct $identity<$generics> {
+        $members
+    }
+}
+@syntax {
+    $macros
     construct $identity {
         $members
     }
@@ -9,6 +15,9 @@ construct Construct {
     state macros: Macro
 
     state identity: Identity
+
+    @many
+    state generics: Let
 
     @many
     state members: @member

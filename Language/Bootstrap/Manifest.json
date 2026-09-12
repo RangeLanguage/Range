@@ -15,7 +15,7 @@
   },
   "sources": {
     "manifest": "Language/CompilerSources.txt",
-    "manifestSha256": "9968519f51b20b315916ad7efdbaf6b9e547af3a8560d6d1155cd5729140d9b1"
+    "manifestSha256": "9f3c8abf15fa93e439fe92b02610d497ffe48a93a042dde88190d9b68ae7f9c1"
   },
   "runtime": {
     "temporary": true,
@@ -23,7 +23,7 @@
     "sources": [
       {
         "path": "Language/Runtime/RangeCompilerHost.c",
-        "sha256": "c3908059c3dc5085bd37a8582d29f835faf777c57a3f91e30c59e64401619750"
+        "sha256": "caf3878b45255f986db9e8bb13408989e0d08ffbaaff94ea4fc8a94bd6169fa7"
       },
       {
         "path": "Language/Runtime/RangeCompilerMetrics.c",

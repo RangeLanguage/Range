@@ -4,7 +4,7 @@ enum TrafficLight {
     case green
 }
 
-function signal(light: TrafficLight): TrafficLight {
+function signal(let light: TrafficLight): TrafficLight {
     switch light {
     case .red:
         return TrafficLight(.red)

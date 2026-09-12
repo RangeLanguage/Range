@@ -10,7 +10,9 @@ The old GPUCanvas and native-triangle demos are not project boundaries anymore.
 Run the complete RangeView source set with:
 
 ```sh
-scripts/range run Projects/RangeView
+range run Projects/RangeView
+# Later runs may use the registered construct identity:
+range run RangeViewProject
 ```
 
 ---
@@ -67,13 +69,13 @@ construct Stack {
 }
 
 Stack(axis: .vertical, spacing: 10) {
-    Header().alignment(.top, .center)
-    Text("Range").alignment(.top, .leading)
+    Header().alignment(vertical: .top, horizontal: .center)
+    Text(value: "Range").alignment(vertical: .top, horizontal: .leading)
 }
 .geometry { geometry in
     geometry.shape(.circle)
 }
-.padding(10)
+.padding(value: 10)
 ```
 
 `@view` marks declarations such as `Stack`, `Header`, and `Text`. Their values
@@ -91,7 +93,7 @@ derived body: @view {
 There is no separate component or page category. Composite views expose a
 `body`; primitive views can be lowered directly by their authored rendering
 relationships. Shapes gain the same view identity through `@shape`, while leaf
-values such as `Text("Hello")` carry `@view` directly.
+values such as `Text(value: "Hello")` carry `@view` directly.
 
 The earlier Neat builder separated expression, block, optional, either, and
 array collection. RangeView should recover those general builder operations
@@ -117,9 +119,9 @@ body rather than declared as an application-wide route tree:
 @app
 construct RangeViewApp {
     derived body: @view {
-        NavigationStack {
+        NavigationStack(root: {
             RangeViewHome()
-        }
+        })
     }
 }
 ```
@@ -160,7 +162,7 @@ layout. Compiler B must consume the real `@app` expansion and Window graph
 through its ordinary project pipeline; RangeView has no dedicated backend.
 
 The first executable project slice now runs with
-`scripts/range run Projects/RangeView`. The accepted compiler builds Compiler
+`range run Projects/RangeView`. The accepted compiler builds Compiler
 B, Compiler B discovers the RangeView sources separately, and its ordinary
 project emitter lowers the generated `@main` Process and the Range-authored
 native lifecycle directly to LLVM. `@framework(name:)` relationships select
@@ -177,9 +179,9 @@ written in RangeView terms:
 @app
 construct RangeViewApp {
     derived body: @view {
-        NavigationStack {
+        NavigationStack(root: {
             RangeViewHome()
-        }
+        })
     }
 }
 
@@ -192,9 +194,9 @@ construct Rectangle {
 @view
 construct RangeViewHome {
     derived body: @view {
-        Text("RangeView")
+        Text(value: "RangeView")
         Stack(.vertical, spacing: 10) {
-            Rectangle().fill(.cyan)
+            Rectangle().fill(color: .cyan)
         }
     }
 }
@@ -216,7 +218,7 @@ backend-neutral `PaintSpec` before the native color adapter runs.
 }
 ```
 
-`@modifier(.style)`, `@modifier(.layout)`, and future behavior modifiers append
+`@modifier(category: .style)`, `@modifier(.layout)`, and future behavior modifiers append
 typed values to this relationship. They do not add one stored field per
 modifier to every view. The relationship ordinal preserves authored
 modifier order while each lowering phase selects the categories it consumes.
@@ -230,7 +232,7 @@ construct NavigationStack {
     @many
     state path: @view
 
-    binding _ root: () -> @view
+    binding root: () -> @view
 
     derived body: @view {
         root()
@@ -250,11 +252,11 @@ Functions marked `@modifier` contribute typed values to the current
 view's ordered modifier relationship:
 
 ```range
-@modifier(.style)
-function fill<Paint: @color>(_ color: Paint): StyleTransform
+@modifier(category: .style)
+function fill<Paint: @color>(let color: Paint): StyleTransform
 ```
 
-That makes `.fill(Color.cyan)` available through ordinary member access without
+That makes `.fill(color: Color.cyan)` available through ordinary member access without
 creating an artificial wrapper view or adding a stored `fill` field to every
 view. `.geometry { ... }` remains the more general geometry
 observation and transformation boundary.

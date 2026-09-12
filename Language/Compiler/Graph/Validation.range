@@ -1,0 +1,517 @@
+function programGraphDiagnostic(
+    let diagnostics: LoweringDiagnosticStore,
+    let sourceID: Int,
+    let syntaxID: Int,
+    let message: String
+): Int {
+    let start: Int(diagnostics.messageBytes.count)
+    state index: Int(0)
+    while index < message.count {
+        if diagnostics.messageBytes.append(
+            element: message.byte(index: index)
+        ) != 0 { return 0 - 1 }
+        index: index + 1
+    }
+    if diagnostics.sourceIDs.append(element: sourceID) != 0
+        || diagnostics.syntaxIDs.append(element: syntaxID) != 0
+        || diagnostics.messageByteStarts.append(element: start) != 0
+        || diagnostics.messageByteCounts.append(element: message.count) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function programGraphOperationIsTerminator(let kindCode: Int): Bool {
+    return kindCode == operationKindCode(kind: .branch)
+        || kindCode == operationKindCode(kind: .return)
+}
+
+function programGraphValidateFunctions(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state functionID: Int(0)
+    while functionID < graph.functionSourceIDs.count {
+        let entryBlockID: Int(graph.functionEntryBlockIDs.element(
+            index: functionID
+        ))
+        if graph.functionExternCodes.element(index: functionID) == 0
+            && (entryBlockID < 0
+                || entryBlockID >= graph.blockFunctionIDs.count
+                || graph.blockFunctionIDs.element(index: entryBlockID)
+                    != functionID) {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: graph.functionSourceIDs.element(index: functionID),
+                syntaxID: graph.functionSyntaxIDs.element(index: functionID),
+                message: "Function has no valid entry block"
+            )
+            failures: failures + 1
+        }
+        functionID: functionID + 1
+    }
+    return failures
+}
+
+function programGraphValidateBlocks(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state blockID: Int(0)
+    while blockID < graph.blockFunctionIDs.count {
+        let functionID: Int(graph.blockFunctionIDs.element(index: blockID))
+        if functionID < 0 || functionID >= graph.functionSourceIDs.count {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: graph.blockSyntaxIDs.element(index: blockID),
+                message: "Block has no owning Function"
+            )
+            failures: failures + 1
+        }
+        state foundTerminator: Bool(false)
+        state operationID: Int(0)
+        while operationID < graph.operationBlockIDs.count {
+            if graph.operationBlockIDs.element(index: operationID) == blockID {
+                if foundTerminator {
+                    programGraphDiagnostic(
+                        diagnostics: diagnostics,
+                        sourceID: graph.operationSourceIDs.element(
+                            index: operationID
+                        ),
+                        syntaxID: graph.operationSyntaxIDs.element(
+                            index: operationID
+                        ),
+                        message: "Operation follows a block terminator"
+                    )
+                    failures: failures + 1
+                }
+                if programGraphOperationIsTerminator(
+                    kindCode: graph.operationKindCodes.element(
+                        index: operationID
+                    )
+                ) { foundTerminator: true }
+            }
+            operationID: operationID + 1
+        }
+        if !foundTerminator
+            || graph.blockTerminatedCodes.element(index: blockID) == 0 {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: graph.blockSyntaxIDs.element(index: blockID),
+                message: "Block is not terminated"
+            )
+            failures: failures + 1
+        }
+        blockID: blockID + 1
+    }
+    return failures
+}
+
+function programGraphValidateValues(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state valueID: Int(0)
+    while valueID < graph.valueProducerOperationIDs.count {
+        let producerID: Int(graph.valueProducerOperationIDs.element(
+            index: valueID
+        ))
+        let typeID: Int(graph.valueTypeIDs.element(index: valueID))
+        state isParameter: Bool(false)
+        state parameterRow: Int(0)
+        while parameterRow < graph.functionParameterValueIDs.count {
+            if graph.functionParameterValueIDs.element(index: parameterRow)
+                == valueID { isParameter: true }
+            parameterRow: parameterRow + 1
+        }
+        if (producerID < 0 && !isParameter)
+            || producerID >= graph.operationBlockIDs.count {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: 0 - 1,
+                message: "Value has no producer"
+            )
+            failures: failures + 1
+        }
+        if typeID < 0 || typeID >= graph.typeDeclarationRows.count
+            || graph.valueWidths.element(index: valueID) <= 0 {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: 0 - 1,
+                message: "Value has no valid type representation"
+            )
+            failures: failures + 1
+        }
+        state candidateID: Int(valueID + 1)
+        while producerID >= 0
+            && candidateID < graph.valueProducerOperationIDs.count {
+            if graph.valueProducerOperationIDs.element(index: candidateID)
+                    == producerID
+                && graph.valueProducerOrdinals.element(index: candidateID)
+                    == graph.valueProducerOrdinals.element(index: valueID) {
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: 0 - 1,
+                    syntaxID: 0 - 1,
+                    message: "Operation output has multiple Value identities"
+                )
+                failures: failures + 1
+            }
+            candidateID: candidateID + 1
+        }
+        valueID: valueID + 1
+    }
+    return failures
+}
+
+function programGraphValidateOperands(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state row: Int(0)
+    while row < graph.operandOperationIDs.count {
+        let operationID: Int(graph.operandOperationIDs.element(index: row))
+        let valueID: Int(graph.operandValueIDs.element(index: row))
+        if operationID < 0 || operationID >= graph.operationBlockIDs.count
+            || valueID < 0
+            || valueID >= graph.valueProducerOperationIDs.count {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: 0 - 1,
+                message: "Operand references an unknown operation or Value"
+            )
+            failures: failures + 1
+        }
+        state candidate: Int(row + 1)
+        while candidate < graph.operandOperationIDs.count {
+            if graph.operandOperationIDs.element(index: candidate)
+                    == operationID
+                && graph.operandOrdinals.element(index: candidate)
+                    == graph.operandOrdinals.element(index: row) {
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: 0 - 1,
+                    syntaxID: 0 - 1,
+                    message: "Operation operand ordinal is duplicated"
+                )
+                failures: failures + 1
+            }
+            candidate: candidate + 1
+        }
+        row: row + 1
+    }
+    return failures
+}
+
+function programGraphValidateEdges(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state row: Int(0)
+    while row < graph.effectSourceOperationIDs.count {
+        let source: Int(graph.effectSourceOperationIDs.element(index: row))
+        let target: Int(graph.effectTargetOperationIDs.element(index: row))
+        if source < 0 || source >= graph.operationBlockIDs.count
+            || target < 0 || target >= graph.operationBlockIDs.count
+            || graph.blockFunctionIDs.element(
+                index: graph.operationBlockIDs.element(index: source)
+            ) != graph.blockFunctionIDs.element(
+                index: graph.operationBlockIDs.element(index: target)
+            ) {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: 0 - 1,
+                message: "Effect edge crosses an invalid Function boundary"
+            )
+            failures: failures + 1
+        }
+        row: row + 1
+    }
+    row: 0
+    while row < graph.controlSourceBlockIDs.count {
+        let sourceBlock: Int(graph.controlSourceBlockIDs.element(index: row))
+        let targetBlock: Int(graph.controlTargetBlockIDs.element(index: row))
+        let predicate: Int(graph.controlPredicateValueIDs.element(index: row))
+        if sourceBlock < 0 || sourceBlock >= graph.blockFunctionIDs.count
+            || targetBlock < 0 || targetBlock >= graph.blockFunctionIDs.count
+            || graph.blockFunctionIDs.element(index: sourceBlock)
+                != graph.blockFunctionIDs.element(index: targetBlock)
+            || (predicate >= 0
+                && predicate >= graph.valueProducerOperationIDs.count) {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: 0 - 1,
+                message: "Control edge has an invalid block or predicate"
+            )
+            failures: failures + 1
+        }
+        row: row + 1
+    }
+    return failures
+}
+
+function programGraphValidateBlockArguments(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state row: Int(0)
+    while row < graph.blockArgumentBlockIDs.count {
+        let blockID: Int(graph.blockArgumentBlockIDs.element(index: row))
+        let valueID: Int(graph.blockArgumentValueIDs.element(index: row))
+        let typeID: Int(graph.blockArgumentTypeIDs.element(index: row))
+        if blockID < 0 || blockID >= graph.blockFunctionIDs.count
+            || valueID < 0
+            || valueID >= graph.valueProducerOperationIDs.count
+            || typeID < 0 || typeID >= graph.typeDeclarationRows.count
+            || graph.valueTypeIDs.element(index: valueID) != typeID {
+            programGraphDiagnostic(
+                diagnostics: diagnostics,
+                sourceID: 0 - 1,
+                syntaxID: 0 - 1,
+                message: "Block argument has an invalid Value or Type"
+            )
+            failures: failures + 1
+        }
+        state candidate: Int(row + 1)
+        while candidate < graph.blockArgumentBlockIDs.count {
+            if graph.blockArgumentBlockIDs.element(index: candidate) == blockID
+                && graph.blockArgumentOrdinals.element(index: candidate)
+                    == graph.blockArgumentOrdinals.element(index: row) {
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: 0 - 1,
+                    syntaxID: 0 - 1,
+                    message: "Block argument ordinal is duplicated"
+                )
+                failures: failures + 1
+            }
+            candidate: candidate + 1
+        }
+        row: row + 1
+    }
+    return failures
+}
+
+function programGraphValidateCalls(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state operationID: Int(0)
+    while operationID < graph.operationKindCodes.count {
+        if graph.operationKindCodes.element(index: operationID)
+            == operationKindCode(kind: .call) {
+            let target: Int(graph.operationTargetFunctionIDs.element(
+                index: operationID
+            ))
+            if target < 0 || target >= graph.functionSourceIDs.count {
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: graph.operationSourceIDs.element(
+                        index: operationID
+                    ),
+                    syntaxID: graph.operationSyntaxIDs.element(
+                        index: operationID
+                    ),
+                    message: "Call does not target a reachable Function"
+                )
+                failures: failures + 1
+            } else {
+                state expected: Int(0)
+                state parameterRow: Int(0)
+                while parameterRow
+                    < graph.functionParameterFunctionIDs.count {
+                    if graph.functionParameterFunctionIDs.element(
+                            index: parameterRow
+                        ) == target {
+                        expected: expected + 1
+                    }
+                    parameterRow: parameterRow + 1
+                }
+                state actual: Int(0)
+                state operandRow: Int(0)
+                while operandRow < graph.operandOperationIDs.count {
+                    if graph.operandOperationIDs.element(index: operandRow)
+                        == operationID { actual: actual + 1 }
+                    operandRow: operandRow + 1
+                }
+                if actual != expected {
+                    programGraphDiagnostic(
+                        diagnostics: diagnostics,
+                        sourceID: graph.operationSourceIDs.element(
+                            index: operationID
+                        ),
+                        syntaxID: graph.operationSyntaxIDs.element(
+                            index: operationID
+                        ),
+                        message: "Call arity does not match its Function signature"
+                    )
+                    failures: failures + 1
+                }
+            }
+        }
+        operationID: operationID + 1
+    }
+    return failures
+}
+
+function programGraphValidateLocalDominance(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state row: Int(0)
+    while row < graph.operandOperationIDs.count {
+        let operationID: Int(graph.operandOperationIDs.element(index: row))
+        let valueID: Int(graph.operandValueIDs.element(index: row))
+        if operationID >= 0 && operationID < graph.operationBlockIDs.count
+            && valueID >= 0
+            && valueID < graph.valueProducerOperationIDs.count {
+            let producerID: Int(graph.valueProducerOperationIDs.element(
+                index: valueID
+            ))
+            if producerID >= operationID
+                && producerID >= 0
+                && graph.operationBlockIDs.element(index: producerID)
+                    == graph.operationBlockIDs.element(index: operationID) {
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: graph.operationSourceIDs.element(
+                        index: operationID
+                    ),
+                    syntaxID: graph.operationSyntaxIDs.element(
+                        index: operationID
+                    ),
+                    message: "Value does not dominate its local use"
+                )
+                failures: failures + 1
+            }
+        }
+        row: row + 1
+    }
+    return failures
+}
+
+function programGraphValidateEffectChains(
+    let graph: ProgramGraph,
+    let diagnostics: LoweringDiagnosticStore
+): Int {
+    state failures: Int(0)
+    state operationID: Int(0)
+    while operationID < graph.operationKindCodes.count {
+        let kind: Int(graph.operationKindCodes.element(index: operationID))
+        let effectful: Bool(
+            kind == operationKindCode(kind: .allocate)
+                || kind == operationKindCode(kind: .store)
+                || kind == operationKindCode(kind: .load)
+                || kind == operationKindCode(kind: .call)
+                || kind == operationKindCode(kind: .output)
+                || kind == operationKindCode(kind: .destroy)
+        )
+        if effectful {
+            state incoming: Int(0)
+            state row: Int(0)
+            while row < graph.effectTargetOperationIDs.count {
+                if graph.effectTargetOperationIDs.element(index: row)
+                    == operationID { incoming: incoming + 1 }
+                row: row + 1
+            }
+            state previousEffect: Int(0 - 1)
+            state candidate: Int(0)
+            while candidate < operationID {
+                if graph.operationBlockIDs.element(index: candidate)
+                        == graph.operationBlockIDs.element(index: operationID) {
+                    let candidateKind: Int(graph.operationKindCodes.element(
+                        index: candidate
+                    ))
+                    if candidateKind == operationKindCode(kind: .allocate)
+                        || candidateKind == operationKindCode(kind: .store)
+                        || candidateKind == operationKindCode(kind: .load)
+                        || candidateKind == operationKindCode(kind: .call)
+                        || candidateKind == operationKindCode(kind: .output)
+                        || candidateKind == operationKindCode(kind: .destroy) {
+                        previousEffect: candidate
+                    }
+                }
+                candidate: candidate + 1
+            }
+            if (previousEffect < 0 && incoming != 0)
+                || (previousEffect >= 0 && incoming != 1) {
+                programGraphDiagnostic(
+                    diagnostics: diagnostics,
+                    sourceID: graph.operationSourceIDs.element(
+                        index: operationID
+                    ),
+                    syntaxID: graph.operationSyntaxIDs.element(
+                        index: operationID
+                    ),
+                    message: "Effectful operation has an incomplete effect chain"
+                )
+                failures: failures + 1
+            }
+        }
+        operationID: operationID + 1
+    }
+    return failures
+}
+
+function validateProgramGraph(let graph: ProgramGraph): ProgramLowering {
+    let diagnostics: LoweringDiagnosticStore(
+        loweringDiagnosticStoreCreate(capacity: 16)
+    )
+    state failures: Int(0)
+    failures: failures + programGraphValidateFunctions(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateBlocks(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateValues(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateOperands(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateEdges(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateBlockArguments(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateCalls(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateLocalDominance(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    failures: failures + programGraphValidateEffectChains(
+        graph: graph,
+        diagnostics: diagnostics
+    )
+    return ProgramLowering(
+        graph: graph,
+        diagnostics: diagnostics,
+        valid: failures == 0
+    )
+}

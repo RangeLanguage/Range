@@ -1,0 +1,141 @@
+enum URLScheme {
+    case file
+}
+
+construct URLComponents {
+    @many state byteStarts: Int
+    @many state byteCounts: Int
+    @many state componentBytes: Int
+}
+
+function urlComponentsCreate(let capacity: Int): URLComponents {
+    return URLComponents(
+        byteStarts: @many(capacity: capacity),
+        byteCounts: @many(capacity: capacity),
+        componentBytes: @many(capacity: capacity * 32)
+    )
+}
+
+function urlComponentsCount(let components: URLComponents): Int {
+    return components.byteStarts.count
+}
+
+function urlComponentsAppend(
+    let components: URLComponents,
+    let value: String
+): Int {
+    let start: Int(components.componentBytes.count)
+    state index: Int(0)
+    while index < value.count {
+        if components.componentBytes.append(element: value.byte(index: index)) != 0 {
+            return 0 - 1
+        }
+        index: index + 1
+    }
+    if components.byteStarts.append(element: start) != 0
+        || components.byteCounts.append(element: value.count) != 0 {
+        return 0 - 1
+    }
+    return 0
+}
+
+function urlComponentsElement(
+    let components: URLComponents,
+    let index: Int
+): String {
+    if index < 0 || index >= components.byteStarts.count { return "" }
+    let start: Int(components.byteStarts.element(index: index))
+    let count: Int(components.byteCounts.element(index: index))
+    state value: String("")
+    state cursor: Int(0)
+    while cursor < count {
+        stringAppendByte(
+            value: value,
+            byte: components.componentBytes.element(index: start + cursor)
+        )
+        cursor: cursor + 1
+    }
+    return value
+}
+
+function urlComponentsDestroy(let components: URLComponents): Int {
+    state result: Int(0)
+    if components.byteStarts.destroy() != 0 { result: 0 - 1 }
+    if components.byteCounts.destroy() != 0 { result: 0 - 1 }
+    if components.componentBytes.destroy() != 0 { result: 0 - 1 }
+    return result
+}
+
+construct URL {
+    let scheme: URLScheme
+    let absolute: Bool
+    let components: URLComponents
+
+    function string(): String {
+        state value: String("")
+        if scheme == .file && absolute {
+            value.append(text: "/")
+        }
+        state index: Int(0)
+        while index < urlComponentsCount(components: components) {
+            if index != 0 { value.append(text: "/") }
+            value.append(text: urlComponentsElement(
+                components: components,
+                index: index
+            ))
+            index: index + 1
+        }
+        return value
+    }
+
+    function appending(let component: String): URL {
+        let result: URLComponents(urlComponentsCreate(
+            capacity: urlComponentsCount(components: components) + 1
+        ))
+        state index: Int(0)
+        while index < urlComponentsCount(components: components) {
+            urlComponentsAppend(
+                components: result,
+                value: urlComponentsElement(
+                    components: components,
+                    index: index
+                )
+            )
+            index: index + 1
+        }
+        urlComponentsAppend(components: result, value: component)
+        return URL(
+            scheme: scheme,
+            absolute: absolute,
+            components: result
+        )
+    }
+}
+
+function fileURL(let path: String): URL {
+    let components: URLComponents(urlComponentsCreate(capacity: 8))
+    state absolute: Bool(false)
+    state start: Int(0)
+    if path.count != 0 && path.byte(index: 0) == 47 {
+        absolute: true
+        start: 1
+    }
+    state cursor: Int(start)
+    while cursor <= path.count {
+        if cursor == path.count || path.byte(index: cursor) == 47 {
+            if cursor > start {
+                urlComponentsAppend(
+                    components: components,
+                    value: path.substring(start: start, end: cursor)
+                )
+            }
+            start: cursor + 1
+        }
+        cursor: cursor + 1
+    }
+    return URL(
+        scheme: .file,
+        absolute: absolute,
+        components: components
+    )
+}

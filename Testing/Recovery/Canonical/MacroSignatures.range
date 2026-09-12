@@ -1,0 +1,82 @@
+// Parse signatures using the canonical Range implementation, not the C grammar.
+function recoveryMacroSignatureStatus(let source: String, let hasResult: Bool): Int {
+    let tokens: CompilerBRetainedTokenStore(compilerBLexRetained(source: source))
+    let nodes: SyntaxNodeStore(syntaxNodeStoreCreate(capacity: 8))
+    let signatures: CompilerBMacroSignatureFacetStore(
+        compilerBMacroSignatureFacetStoreCreate(capacity: 8)
+    )
+    state status: Int(compilerBParseMacroSignatureFacet(
+        source: source,
+        tokens: tokens,
+        nodes: nodes,
+        signatures: signatures,
+        macroSyntaxID: 0,
+        nameTokenID: 1,
+        openingTokenID: tokens.kinds.count - 2
+    ))
+    if status == 0 {
+        let keyword: CompilerBToken(compilerBRetainedToken(
+            store: tokens,
+            id: TokenID(value: signatures.parameterKeywordTokenIDs.element(index: 0))
+        ))
+        if !compilerBTokenMatchesBytes(source: source, token: keyword, expected: "let") {
+            status: 7
+        }
+        let target: CompilerBToken(compilerBRetainedToken(
+            store: tokens,
+            id: TokenID(value: signatures.targetTypeTokenIDs.element(index: 0))
+        ))
+        if !compilerBTokenMatchesBytes(source: source, token: target, expected: "Construct") {
+            status: 1
+        }
+        let resultID: Int(signatures.resultTypeTokenIDs.element(index: 0))
+        if hasResult {
+            if resultID < 0 { status: 2 }
+            else {
+                let result: CompilerBToken(compilerBRetainedToken(
+                    store: tokens, id: TokenID(value: resultID)
+                ))
+                if !compilerBTokenMatchesBytes(source: source, token: result, expected: "Int") {
+                    status: 3
+                }
+            }
+        } else if resultID >= 0 { status: 4 }
+        let first: Int(signatures.parameterDefaultFirstTokenIDs.element(index: 0))
+        let after: Int(signatures.parameterDefaultAfterLastTokenIDs.element(index: 0))
+        if first < 0 || after != first + 1 { status: 5 }
+        else {
+            let value: CompilerBToken(compilerBRetainedToken(
+                store: tokens, id: TokenID(value: first)
+            ))
+            if !compilerBTokenMatchesBytes(source: source, token: value, expected: "3") {
+                status: 6
+            }
+        }
+    }
+    compilerBMacroSignatureFacetStoreDestroy(store: signatures)
+    syntaxNodeStoreDestroy(store: nodes)
+    compilerBRetainedTokenStoreDestroy(store: tokens)
+    return status
+}
+
+function recoveryMacroSignatures(): Int {
+    if recoveryMacroSignatureStatus(
+        source: "macro sample(let value: Int(3)): Construct {}", hasResult: false
+    ) != 0 { return 1 }
+    if recoveryMacroSignatureStatus(
+        source: "macro sample(let value: Int(3)): Construct -> Int {}", hasResult: true
+    ) != 0 { return 2 }
+    if recoveryMacroSignatureStatus(
+        source: "macro sample(let value: Int: 3): Construct {}", hasResult: false
+    ) != (0 - 1) { return 3 }
+    if recoveryMacroSignatureStatus(
+        source: "macro sample(value: Int(3)): Construct {}", hasResult: false
+    ) != (0 - 1) { return 4 }
+    if recoveryMacroSignatureStatus(
+        source: "macro sample(state value: Int(3)): Construct {}", hasResult: false
+    ) != (0 - 1) { return 5 }
+    if recoveryMacroSignatureStatus(
+        source: "macro sample(derived value: Int(3)): Construct {}", hasResult: false
+    ) != (0 - 1) { return 6 }
+    return 42
+}

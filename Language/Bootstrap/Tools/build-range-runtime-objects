@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+output_root="${1:-$REPO_ROOT/Distribution/Runtime/darwin-arm64}"
+
+mkdir -p "$output_root"
+for source in \
+    RangeCompilerHost.c \
+    RangeCompilerMetrics.c \
+    RangeRawBuffer.c; do
+    destination="$output_root/${source%.c}.o"
+    temporary="$output_root/.${source%.c}.$$.o"
+    clang \
+        -arch arm64 \
+        -mmacosx-version-min=27.0 \
+        -std=c17 \
+        -O2 \
+        -fno-common \
+        -fno-ident \
+        -fno-stack-protector \
+        -fno-asynchronous-unwind-tables \
+        -fno-unwind-tables \
+        -fno-exceptions \
+        -c "$REPO_ROOT/Language/Runtime/$source" \
+        -o "$temporary"
+    mv -f "$temporary" "$destination"
+done
+
+/usr/bin/shasum -a 256 "$output_root"/*.o
+

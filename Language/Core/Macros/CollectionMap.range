@@ -1,0 +1,15 @@
+@collectionModifier
+macro map(): @many -> @many {
+    let transform: #environment.Application.children.filter(all: Closure)
+    state input: #environment.target
+    state output: @many(capacity: input.count)
+    state index: Int(0)
+
+    while index < input.count {
+        let element: input.element(index: index)
+        output.append(transform(element))
+        index: index + 1
+    }
+
+    output
+}

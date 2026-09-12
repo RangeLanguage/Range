@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-binary-backend.XXXXXX")"
+cleanup() { rm -rf "$work_root"; }
+trap cleanup EXIT
+
+public_compiler="$work_root/public-compiler.range"
+sed '/^function compilerBCompileRoute(/,$d' \
+    "$REPO_ROOT/Language/Compiler/Main.range" > "$public_compiler"
+
+! grep -E '/usr/bin/(clang|as|ld)|ProcessPlan|ProgramGraphAssembly|\.s"' \
+    "$public_compiler" >/dev/null
+grep -F 'compilerBEncodeProjectObject' "$public_compiler" >/dev/null
+grep -F 'linkExecutable' "$public_compiler" >/dev/null
+grep -F 'fileManagerWriteExecutable' "$public_compiler" >/dev/null
+grep -F 'function writeObject(' \
+    "$REPO_ROOT/Language/Compiler/Backend/MachOObject.range" >/dev/null
+grep -F 'function binaryPatchUInt64LE(' \
+    "$REPO_ROOT/Language/Core/Coding/Binary.range" >/dev/null
+grep -F 'macro target(' \
+    "$REPO_ROOT/Language/Core/Package/Target.range" >/dev/null
+grep -F 'compilerBSelectProjectTarget' \
+    "$REPO_ROOT/Language/Compiler/Main.range" >/dev/null
+! rg -n 'hostCompilationTarget|\.appleArm64|demand\.target' \
+    "$REPO_ROOT/Language" >/dev/null
+
+while IFS= read -r source; do
+    ! grep -Ei 'LLVM' "$REPO_ROOT/$source" >/dev/null
+done < "$REPO_ROOT/Language/CompilerSources.txt"
+
+cat > "$work_root/oracle.s" <<'ASSEMBLY'
+.text
+.globl _range_backend_oracle
+_range_backend_oracle:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    ldp x29, x30, [sp], #16
+    ret
+    add x9, sp, x12
+    add sp, sp, x9
+    sub sp, sp, x9
+    adrp x16, 0
+    ldr x16, [x16]
+    br x16
+ASSEMBLY
+clang -arch arm64 -c "$work_root/oracle.s" -o "$work_root/oracle.o"
+oracle_words="$(otool -t "$work_root/oracle.o" | tail -n 1 | sed 's/^[^ ]* //')"
+[[ "$oracle_words" == 'a9bf7bfd 910003fd a8c17bfd d65f03c0 8b2c63e9 8b2963ff cb2963ff 90000010 f9400210 d61f0200 ' ]]
+grep -F 'unsigned32(high: 43455, low: 31741)' \
+    "$REPO_ROOT/Language/Compiler/Backend/AppleArm64Program.range" >/dev/null
+grep -F 'unsigned32(high: 43201, low: 31741)' \
+    "$REPO_ROOT/Language/Compiler/Backend/AppleArm64Operations.range" >/dev/null
+grep -F 'unsigned32(high: 54879, low: 960)' \
+    "$REPO_ROOT/Language/Compiler/Backend/AppleArm64Operations.range" >/dev/null
+grep -F 'unsigned32(high: 35616, low: 24576)' \
+    "$REPO_ROOT/Language/Compiler/Backend/AppleArm64Instructions.range" >/dev/null
+grep -F 'unsigned32(high: 52000, low: 24576)' \
+    "$REPO_ROOT/Language/Compiler/Backend/AppleArm64Instructions.range" >/dev/null
+
+for source in \
+    Language/Core/Coding/Binary.range \
+    Language/Core/Coding/Unsigned64.range \
+    Language/Compiler/Backend/Object.range \
+    Language/Compiler/Backend/AppleArm64Encoding.range \
+    Language/Compiler/Backend/AppleArm64Instructions.range \
+    Language/Compiler/Backend/AppleArm64Operations.range \
+    Language/Compiler/Backend/AppleArm64Program.range \
+    Language/Compiler/Backend/AppleArm64Relocation.range \
+    Language/Compiler/Backend/MachODynamicLink.range \
+    Language/Compiler/Backend/MachOImage.range \
+    Language/Compiler/Backend/MachOLink.range \
+    Language/Compiler/Backend/MachOObject.range \
+    Language/Compiler/Backend/MachOMerge.range \
+    Language/Compiler/Backend/MachOLinker.range; do
+    syntax_output="$work_root/$(basename "$source").syntax"
+    "$REPO_ROOT/Language/Bootstrap/Tools/bootstrap-range-compiler" \
+        "$REPO_ROOT/$source" > "$syntax_output" || true
+    ! grep -F 'parser status' "$syntax_output" >/dev/null
+done
+
+for object in "$REPO_ROOT"/Distribution/Runtime/darwin-arm64/*.o; do
+    relocation_types="$work_root/$(basename "$object").relocations"
+    otool -rv "$object" \
+        | awk '$1 ~ /^[0-9a-f]+$/ { for (field = 1; field <= NF; field += 1) if ($field ~ /^(ADDEND|BR26|GOTLDP|GOTLDPOFFalse|PAGE21|PAGOF12|UNSIGND)$/) print $field }' \
+        | sort -u > "$relocation_types"
+    while IFS= read -r relocation; do
+        case "$relocation" in
+            ADDEND|BR26|GOTLDP|GOTLDPOFFalse|PAGE21|PAGOF12|UNSIGND) ;;
+            *) echo "unsupported runtime relocation: $relocation" >&2; exit 1 ;;
+        esac
+    done < "$relocation_types"
+done
+
+grep -F 'case arm64Branch26' \
+    "$REPO_ROOT/Language/Compiler/Backend/Object.range" >/dev/null
+grep -F 'case arm64Addend' \
+    "$REPO_ROOT/Language/Compiler/Backend/Object.range" >/dev/null
+grep -F 'machOMergeObjects' \
+    "$REPO_ROOT/Language/Compiler/Backend/MachOLink.range" >/dev/null
+grep -F 'machOChainedFixups' \
+    "$REPO_ROOT/Language/Compiler/Backend/MachOLinker.range" >/dev/null
+! grep -E 'multi-object.*not materialized|chained-fixup linking is not materialized' \
+    "$REPO_ROOT/Language/Compiler/Backend/"*.range >/dev/null
+grep -F 'LC_DYLD_CHAINED_FIXUPS' \
+    "$REPO_ROOT/Language/Compiler/Backend/MachODynamicLink.range" >/dev/null || \
+    grep -F 'unsigned32(high: 32768, low: 52)' \
+        "$REPO_ROOT/Language/Compiler/Backend/MachOLinker.range" >/dev/null
+
+echo "range binary backend structure: pass"

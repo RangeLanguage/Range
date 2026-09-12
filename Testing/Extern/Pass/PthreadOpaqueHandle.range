@@ -6,7 +6,7 @@ function pthread_self(): PthreadHandle
 
 @extern
 @link(.pthread)
-function pthread_equal(left: PthreadHandle, right: PthreadHandle): Int
+function pthread_equal(let left: PthreadHandle, let right: PthreadHandle): Int
 
 @main {
     let current: PthreadHandle(pthread_self())

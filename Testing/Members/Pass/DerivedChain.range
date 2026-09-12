@@ -5,7 +5,7 @@ construct Counter {
         value + value
     }
 
-    function update(newValue: Int): Int {
+    function update(let newValue: Int): Int {
         value: newValue
         return value
     }

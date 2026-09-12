@@ -6,11 +6,6 @@ const conversationPagePath = new URL(
   "../direct-renderer/app/webview/assets/local-conversation-page-BFpUCld2.js",
   import.meta.url,
 );
-const homePath = new URL(
-  "../direct-renderer/app/webview/assets/app-initial-DJrCTPoN.js",
-  import.meta.url,
-);
-
 async function readSwitcher() {
   const source = await readFile(conversationPagePath, "utf8");
   return source.slice(source.indexOf("function So(e)"), source.indexOf("function Co(e)"));
@@ -51,7 +46,7 @@ test("Build uses the trailing slot leading edge and the native Codex chevron", a
   assert.doesNotMatch(switcher, /"aria-pressed": chatVisible/);
 });
 
-test("project filesystem stays locked while Build remains an execution dropdown", async () => {
+test("project filesystem stays locked while Build exposes a separate execution dropdown", async () => {
   const switcher = await readSwitcher();
   assert.match(switcher, /hasProject = projectContext != null/);
   assert.match(switcher, /dataset\.rangeProjectBuildLocked = `true`/);
@@ -77,9 +72,8 @@ test("Chat fills the pane while selecting Summary replaces Chat", async () => {
   assert.doesNotMatch(conversation, /data-range-chat-summary-separator/);
 });
 
-test("Build chooses Local or ChatGPT Work Cloud and applies the run location", async () => {
+test("Build chooses Local or ChatGPT Work Cloud without replacing the conversation", async () => {
   const switcher = await readSwitcher();
-  const home = await readFile(homePath, "utf8");
   assert.match(switcher, /"aria-label": `Build execution`/);
   assert.match(switcher, /role: `menu`/);
   assert.match(switcher, /chooseBuildMode\(`local`\)/);
@@ -88,10 +82,10 @@ test("Build chooses Local or ChatGPT Work Cloud and applies the run location", a
   assert.match(switcher, /children: `Cloud \(ChatGPT Work\)`/);
   assert.match(switcher, /buildRunLocation === `cloud` \? `Cloud` : `Local`/);
   assert.match(switcher, /role: `menuitemradio`/);
-  assert.match(switcher, /rangeBuildRunLocation: runLocation/);
-  assert.match(home, /requestedBuildRunLocation = D\?\.rangeBuildRunLocation/);
-  assert.match(home, /n\.setWorkRunLocation\(requestedBuildRunLocation\)/);
-  assert.match(home, /rangeBuildRunLocation, \.\.\.nextState/);
+  assert.match(switcher, /localStorage\.setItem\(`range\.build\.runLocation`, runLocation\)/);
+  assert.match(switcher, /setRangeBuildBrowserOpen\(!0\)/);
+  assert.doesNotMatch(switcher, /rangeBuildRunLocation: runLocation/);
+  assert.doesNotMatch(switcher, /navigate\(`/);
 });
 
 test("the conversation project resolver is passed into workspace controls", async () => {

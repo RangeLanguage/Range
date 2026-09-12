@@ -3,7 +3,7 @@ compilerSourceFile\trole=project\tpath=Project/AmbiguousNominalWarning.range
 
 macro repeated(): Construct -> Void {}
 
-macro repeated(value: Int): Construct -> Void {}
+macro repeated(let value: Int): Construct -> Void {}
 
 @repeated
 construct Uses {}

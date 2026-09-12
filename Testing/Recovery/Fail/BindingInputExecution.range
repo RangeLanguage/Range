@@ -1,0 +1,8 @@
+function increment(binding count: Int): Int {
+    count: count + 1
+    return count
+}
+function start(): Int {
+    state count: Int(41)
+    return increment(count: count)
+}

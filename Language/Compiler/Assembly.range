@@ -15,7 +15,7 @@ construct CompilerBLoweredFunctionStore {
     state nameBytes: Int
 }
 
-construct CompilerBSemanticOperationGraph {
+construct SemanticOperationGraph {
     @many
     state functionOrdinals: Int
     @many
@@ -162,21 +162,21 @@ construct CompilerBProjectAssemblyModule {
     let diagnostic: String
 }
 
-function compilerBSemanticOperationConstant(): Int { return 1 }
-function compilerBSemanticOperationBeginStorage(): Int { return 2 }
-function compilerBSemanticOperationDeriveAddress(): Int { return 3 }
-function compilerBSemanticOperationWrite(): Int { return 4 }
-function compilerBSemanticOperationLoad(): Int { return 5 }
-function compilerBSemanticOperationCall(): Int { return 6 }
-function compilerBSemanticOperationEndStorage(): Int { return 7 }
-function compilerBSemanticOperationReturn(): Int { return 8 }
-function compilerBSemanticOperationNone(): Int { return 12 }
-function compilerBSemanticOperationCompare(): Int { return 13 }
+function semanticOperationConstant(): Int { return 1 }
+function semanticOperationBeginStorage(): Int { return 2 }
+function semanticOperationDeriveAddress(): Int { return 3 }
+function semanticOperationStore(): Int { return 4 }
+function semanticOperationLoad(): Int { return 5 }
+function semanticOperationCall(): Int { return 6 }
+function semanticOperationEndStorage(): Int { return 7 }
+function semanticOperationReturn(): Int { return 8 }
+function semanticOperationNone(): Int { return 12 }
+function semanticOperationCompare(): Int { return 13 }
 
-function compilerBSemanticCursorReady(): Int { return 1 }
-function compilerBSemanticCursorSuspended(): Int { return 2 }
-function compilerBSemanticCursorComplete(): Int { return 3 }
-function compilerBSemanticNoPredicate(): Int { return 0 - 1 }
+function semanticCursorReady(): Int { return 1 }
+function semanticCursorSuspended(): Int { return 2 }
+function semanticCursorComplete(): Int { return 3 }
+function semanticNoPredicate(): Int { return 0 - 1 }
 
 function compilerBAppleArm64InstructionMoveImmediate(): Int { return 1 }
 function compilerBAppleArm64InstructionStackAllocate(): Int { return 2 }
@@ -207,14 +207,14 @@ function compilerBAppleArm64ComparisonRegister(): Int { return 5 }
 function compilerBAppleArm64ArgumentOneRegister(): Int { return 6 }
 function compilerBAppleArm64ArgumentTwoRegister(): Int { return 7 }
 
-function compilerBSemanticCurrentStorage(): Int { return 0 - 1 }
-function compilerBSemanticReturnValue(): Int { return 0 }
-function compilerBSemanticDerivedAddress(): Int { return 1 }
-function compilerBSemanticTemporaryValue(): Int { return 2 }
-function compilerBSemanticComparisonValue(): Int { return 3 }
+function semanticCurrentStorage(): Int { return 0 - 1 }
+function semanticReturnValue(): Int { return 0 }
+function semanticDerivedAddress(): Int { return 1 }
+function semanticTemporaryValue(): Int { return 2 }
+function semanticComparisonValue(): Int { return 3 }
 
 function compilerBLoweredFunctionStoreCreate(
-    capacity: Int
+    let capacity: Int
 ): CompilerBLoweredFunctionStore {
     return CompilerBLoweredFunctionStore(
         sourceIDs: @many(capacity: capacity),
@@ -227,10 +227,10 @@ function compilerBLoweredFunctionStoreCreate(
     )
 }
 
-function compilerBSemanticOperationGraphCreate(
-    capacity: Int
-): CompilerBSemanticOperationGraph {
-    return CompilerBSemanticOperationGraph(
+function semanticOperationGraphCreate(
+    let capacity: Int
+): SemanticOperationGraph {
+    return SemanticOperationGraph(
         functionOrdinals: @many(capacity: capacity),
         kindCodes: @many(capacity: capacity),
         targets: @many(capacity: capacity),
@@ -257,7 +257,7 @@ function compilerBSemanticOperationGraphCreate(
 }
 
 function compilerBAppleArm64InstructionGraphCreate(
-    capacity: Int
+    let capacity: Int
 ): CompilerBAppleArm64InstructionGraph {
     return CompilerBAppleArm64InstructionGraph(
         functionOrdinals: @many(capacity: capacity),
@@ -274,13 +274,13 @@ function compilerBAppleArm64InstructionGraphCreate(
 }
 
 function compilerBLoweredManyValueStoreCreate(
-    capacity: Int
+    let capacity: Int
 ): CompilerBLoweredManyValueStore {
     return CompilerBLoweredManyValueStore(values: @many(capacity: capacity))
 }
 
 function compilerBLoweredAggregateFieldStoreCreate(
-    capacity: Int
+    let capacity: Int
 ): CompilerBLoweredAggregateFieldStore {
     return CompilerBLoweredAggregateFieldStore(
         values: @many(capacity: capacity),
@@ -290,13 +290,13 @@ function compilerBLoweredAggregateFieldStoreCreate(
 }
 
 function compilerBLoweredManyValueStoreDestroy(
-    store: CompilerBLoweredManyValueStore
+    let store: CompilerBLoweredManyValueStore
 ): Int {
     return store.values.destroy()
 }
 
 function compilerBLoweredAggregateFieldStoreDestroy(
-    store: CompilerBLoweredAggregateFieldStore
+    let store: CompilerBLoweredAggregateFieldStore
 ): Int {
     state result: Int(0)
     if store.values.destroy() != 0 { result: 0 - 1 }
@@ -306,10 +306,10 @@ function compilerBLoweredAggregateFieldStoreDestroy(
 }
 
 function compilerBLoweredFunctionStoreAppend(
-    store: CompilerBLoweredFunctionStore,
-    sourceID: Int,
-    syntaxID: Int,
-    returnsValue: Bool
+    let store: CompilerBLoweredFunctionStore,
+    let sourceID: Int,
+    let syntaxID: Int,
+    let returnsValue: Bool
 ): Int {
     state returnsValueCode: Int(0)
     if returnsValue { returnsValueCode: 1 }
@@ -325,9 +325,9 @@ function compilerBLoweredFunctionStoreAppend(
 }
 
 function compilerBLoweredFunctionStoreMarkExtern(
-    store: CompilerBLoweredFunctionStore,
-    functionOrdinal: Int,
-    symbol: String
+    let store: CompilerBLoweredFunctionStore,
+    let functionOrdinal: Int,
+    let symbol: String
 ): Int {
     if functionOrdinal < 0 || functionOrdinal >= store.sourceIDs.count {
         return 0 - 1
@@ -350,8 +350,8 @@ function compilerBLoweredFunctionStoreMarkExtern(
 }
 
 function compilerBLoweredFunctionStoreName(
-    store: CompilerBLoweredFunctionStore,
-    functionOrdinal: Int
+    let store: CompilerBLoweredFunctionStore,
+    let functionOrdinal: Int
 ): String {
     let alphabet: String("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
     state result: String("")
@@ -376,14 +376,14 @@ function compilerBLoweredFunctionStoreName(
     return result
 }
 
-function compilerBSemanticOperationGraphAppend(
-    store: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int,
-    kindCode: Int,
-    target: Int,
-    operand: Int,
-    offset: Int,
-    width: Int
+function semanticOperationGraphAppend(
+    let store: SemanticOperationGraph,
+    let functionOrdinal: Int,
+    let kindCode: Int,
+    let target: Int,
+    let operand: Int,
+    let offset: Int,
+    let width: Int
 ): Int {
     if store.functionOrdinals.append(element: functionOrdinal) != 0 { return 0 - 1 }
     if store.kindCodes.append(element: kindCode) != 0 { return 0 - 1 }
@@ -396,7 +396,7 @@ function compilerBSemanticOperationGraphAppend(
         return 0 - 1
     }
     if store.executionStatusCodes.append(
-        element: compilerBExecutionCursorReady()
+        element: semanticCursorReady()
     ) != 0 { return 0 - 1 }
     if store.executionEffectDeclarationRows.append(element: 0 - 1) != 0 {
         return 0 - 1
@@ -404,11 +404,11 @@ function compilerBSemanticOperationGraphAppend(
     return 0
 }
 
-function compilerBSemanticExecutionAttachSource(
-    store: CompilerBSemanticOperationGraph,
-    executionID: Int,
-    syntaxID: Int,
-    ownerSyntaxID: Int
+function semanticExecutionAttachSource(
+    let store: SemanticOperationGraph,
+    let executionID: Int,
+    let syntaxID: Int,
+    let ownerSyntaxID: Int
 ): Int {
     if executionID < 0 || executionID >= store.kindCodes.count { return 0 - 1 }
     if store.executionSyntaxIDs.update(element: syntaxID, index: executionID) != 0 {
@@ -420,10 +420,10 @@ function compilerBSemanticExecutionAttachSource(
     )
 }
 
-function compilerBSemanticExecutionAttachEffect(
-    store: CompilerBSemanticOperationGraph,
-    executionID: Int,
-    declarationRow: Int
+function semanticExecutionAttachEffect(
+    let store: SemanticOperationGraph,
+    let executionID: Int,
+    let declarationRow: Int
 ): Int {
     if executionID < 0 || executionID >= store.kindCodes.count
         || declarationRow < 0 {
@@ -436,12 +436,12 @@ function compilerBSemanticExecutionAttachEffect(
 }
 
 function compilerBExecutionRelationshipAppend(
-    store: CompilerBSemanticOperationGraph,
-    sourceExecutionID: Int,
-    targetExecutionID: Int,
-    ordinal: Int,
-    predicateValue: Int,
-    predicateExpectedValue: Int
+    let store: SemanticOperationGraph,
+    let sourceExecutionID: Int,
+    let targetExecutionID: Int,
+    let ordinal: Int,
+    let predicateValue: Int,
+    let predicateExpectedValue: Int
 ): Int {
     if sourceExecutionID < 0 || sourceExecutionID >= store.kindCodes.count {
         return 0 - 1
@@ -466,8 +466,8 @@ function compilerBExecutionRelationshipAppend(
 }
 
 function compilerBExecutionRelationshipCount(
-    store: CompilerBSemanticOperationGraph,
-    sourceExecutionID: Int
+    let store: SemanticOperationGraph,
+    let sourceExecutionID: Int
 ): Int {
     state row: Int(0)
     state count: Int(0)
@@ -481,8 +481,8 @@ function compilerBExecutionRelationshipCount(
 }
 
 function compilerBExecutionCardinality(
-    store: CompilerBSemanticOperationGraph,
-    sourceExecutionID: Int
+    let store: SemanticOperationGraph,
+    let sourceExecutionID: Int
 ): Int {
     let count: Int(compilerBExecutionRelationshipCount(
         store: store,
@@ -494,14 +494,14 @@ function compilerBExecutionCardinality(
 }
 
 function compilerBAppleArm64InstructionGraphAppend(
-    graph: CompilerBAppleArm64InstructionGraph,
-    functionOrdinal: Int,
-    instructionCode: Int,
-    destinationRegister: Int,
-    sourceRegister: Int,
-    immediate: Int,
-    width: Int,
-    targetFunctionOrdinal: Int
+    let graph: CompilerBAppleArm64InstructionGraph,
+    let functionOrdinal: Int,
+    let instructionCode: Int,
+    let destinationRegister: Int,
+    let sourceRegister: Int,
+    let immediate: Int,
+    let width: Int,
+    let targetFunctionOrdinal: Int
 ): Int {
     if graph.functionOrdinals.append(element: functionOrdinal) != 0 { return 0 - 1 }
     if graph.instructionCodes.append(element: instructionCode) != 0 { return 0 - 1 }
@@ -517,21 +517,21 @@ function compilerBAppleArm64InstructionGraphAppend(
     return 0
 }
 
-function compilerBSemanticOutputEffectAppendByte(
-    store: CompilerBSemanticOperationGraph,
-    byte: Int
+function semanticOutputEffectAppendByte(
+    let store: SemanticOperationGraph,
+    let byte: Int
 ): Int {
     if byte < 0 || byte > 255 { return 0 - 1 }
     return store.outputBytes.append(element: byte)
 }
 
-function compilerBSemanticOutputEffectAppend(
-    store: CompilerBSemanticOperationGraph,
-    executionID: Int,
-    destinationCode: Int,
-    bytes: String,
-    resultValue: Int,
-    outputFunctionOrdinal: Int
+function semanticOutputEffectAppend(
+    let store: SemanticOperationGraph,
+    let executionID: Int,
+    let destinationCode: Int,
+    let bytes: String,
+    let resultValue: Int,
+    let outputFunctionOrdinal: Int
 ): Int {
     if executionID < 0 || executionID >= store.kindCodes.count { return 0 - 1 }
     if destinationCode != 1 && destinationCode != 2 { return 0 - 1 }
@@ -541,14 +541,14 @@ function compilerBSemanticOutputEffectAppend(
         let byte: Int(bytes.byte(index: cursor))
         if byte == 92 && cursor + 1 < bytes.count {
             let escaped: Int(bytes.byte(index: cursor + 1))
-            if escaped == 110 { if compilerBSemanticOutputEffectAppendByte(store: store, byte: 10) != 0 { return 0 - 1 } }
-            else if escaped == 116 { if compilerBSemanticOutputEffectAppendByte(store: store, byte: 9) != 0 { return 0 - 1 } }
-            else if escaped == 48 { if compilerBSemanticOutputEffectAppendByte(store: store, byte: 0) != 0 { return 0 - 1 } }
-            else if escaped == 92 || escaped == 34 { if compilerBSemanticOutputEffectAppendByte(store: store, byte: escaped) != 0 { return 0 - 1 } }
+            if escaped == 110 { if semanticOutputEffectAppendByte(store: store, byte: 10) != 0 { return 0 - 1 } }
+            else if escaped == 116 { if semanticOutputEffectAppendByte(store: store, byte: 9) != 0 { return 0 - 1 } }
+            else if escaped == 48 { if semanticOutputEffectAppendByte(store: store, byte: 0) != 0 { return 0 - 1 } }
+            else if escaped == 92 || escaped == 34 { if semanticOutputEffectAppendByte(store: store, byte: escaped) != 0 { return 0 - 1 } }
             else { return 0 - 1 }
             cursor: cursor + 2
         } else {
-            if compilerBSemanticOutputEffectAppendByte(store: store, byte: byte) != 0 {
+            if semanticOutputEffectAppendByte(store: store, byte: byte) != 0 {
                 return 0 - 1
             }
             cursor: cursor + 1
@@ -567,9 +567,9 @@ function compilerBSemanticOutputEffectAppend(
 }
 
 function compilerBAppleArm64InstructionGraphAppendData(
-    graph: CompilerBAppleArm64InstructionGraph,
-    semantic: CompilerBSemanticOperationGraph,
-    outputRow: Int
+    let graph: CompilerBAppleArm64InstructionGraph,
+    let semantic: SemanticOperationGraph,
+    let outputRow: Int
 ): Int {
     let sourceStart: Int(semantic.outputByteStarts.element(index: outputRow))
     let byteCount: Int(semantic.outputByteCounts.element(index: outputRow))
@@ -588,7 +588,7 @@ function compilerBAppleArm64InstructionGraphAppendData(
 }
 
 function compilerBLoweredFunctionStoreDestroy(
-    store: CompilerBLoweredFunctionStore
+    let store: CompilerBLoweredFunctionStore
 ): Int {
     state result: Int(0)
     if store.sourceIDs.destroy() != 0 { result: 0 - 1 }
@@ -601,8 +601,8 @@ function compilerBLoweredFunctionStoreDestroy(
     return result
 }
 
-function compilerBSemanticOperationGraphDestroy(
-    store: CompilerBSemanticOperationGraph
+function semanticOperationGraphDestroy(
+    let store: SemanticOperationGraph
 ): Int {
     state result: Int(0)
     if store.functionOrdinals.destroy() != 0 { result: 0 - 1 }
@@ -631,7 +631,7 @@ function compilerBSemanticOperationGraphDestroy(
 }
 
 function compilerBAppleArm64InstructionGraphDestroy(
-    graph: CompilerBAppleArm64InstructionGraph
+    let graph: CompilerBAppleArm64InstructionGraph
 ): Int {
     state result: Int(0)
     if graph.functionOrdinals.destroy() != 0 { result: 0 - 1 }
@@ -648,10 +648,10 @@ function compilerBAppleArm64InstructionGraphDestroy(
 }
 
 function compilerBLowerManyOperation(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int,
-    values: CompilerBLoweredManyValueStore
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int,
+    let values: CompilerBLoweredManyValueStore
 ): CompilerBLoweredMany {
     state errorCode: Int(0)
     state count: Int(0)
@@ -709,7 +709,7 @@ function compilerBLowerManyOperation(
             paths: project.sourcePaths,
             index: collectionSourceID
         ))
-        let collectionRevision: CompilerBSyntaxRevision(
+        let collectionRevision: SyntaxRevision(
             compilerBParseSyntaxRevisionWithResolution(
                 source: fileManagerReadFile(path: collectionPath),
                 resolveRelationships: false
@@ -781,7 +781,7 @@ function compilerBLowerManyOperation(
         if errorCode == 0 && materializerCount != 1 {
             errorCode: 8
         }
-        compilerBSyntaxRevisionDestroy(revision: collectionRevision)
+        syntaxRevisionDestroy(revision: collectionRevision)
     }
     if errorCode == 0 {
         let operationIdentity: CompilerBToken(compilerBRetainedToken(
@@ -805,7 +805,7 @@ function compilerBLowerManyOperation(
                 paths: project.sourcePaths,
                 index: materializerSourceID
             ))
-            let materializerRevision: CompilerBSyntaxRevision(
+            let materializerRevision: SyntaxRevision(
                 compilerBParseSyntaxRevisionWithResolution(
                     source: fileManagerReadFile(path: materializerPath),
                     resolveRelationships: false
@@ -844,7 +844,7 @@ function compilerBLowerManyOperation(
                     errorCode: 11
                 }
             }
-            compilerBSyntaxRevisionDestroy(revision: materializerRevision)
+            syntaxRevisionDestroy(revision: materializerRevision)
         }
     }
     state argumentRow: Int(0)
@@ -1000,7 +1000,7 @@ function compilerBLowerManyOperation(
     )
 }
 
-function compilerBLoweredManyDiagnostic(errorCode: Int): String {
+function compilerBLoweredManyDiagnostic(let errorCode: Int): String {
     if errorCode == 1 { return String("many operation is missing its receiver Application") }
     if errorCode == 2 { return String("many operation receiver is missing") }
     if errorCode == 3 { return String("many receiver is not a constructor Application") }
@@ -1026,8 +1026,8 @@ function compilerBLoweredManyDiagnostic(errorCode: Int): String {
 }
 
 function compilerBIntegerRepresentationWidth(
-    project: CompilerBProjectRevision,
-    declarationRow: Int
+    let project: CompilerBProjectRevision,
+    let declarationRow: Int
 ): Int {
     if declarationRow < 0 { return 0 - 1 }
     let sourceID: Int(project.declarations.sourceIDs.element(index: declarationRow))
@@ -1036,7 +1036,7 @@ function compilerBIntegerRepresentationWidth(
         paths: project.sourcePaths,
         index: sourceID
     ))
-    let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
         source: fileManagerReadFile(path: path),
         resolveRelationships: false
     ))
@@ -1107,16 +1107,16 @@ function compilerBIntegerRepresentationWidth(
         }
         memberRow: memberRow + 1
     }
-    compilerBSyntaxRevisionDestroy(revision: revision)
+    syntaxRevisionDestroy(revision: revision)
     if bitCount <= 0 || bitCount % 8 != 0 { return 0 - 2 }
     return bitCount / 8
 }
 
 function compilerBLowerAggregateProjection(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int,
-    fields: CompilerBLoweredAggregateFieldStore
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int,
+    let fields: CompilerBLoweredAggregateFieldStore
 ): CompilerBLoweredAggregate {
     state errorCode: Int(0)
     state frameSize: Int(0)
@@ -1164,7 +1164,7 @@ function compilerBLowerAggregateProjection(
             paths: project.sourcePaths,
             index: declarationSourceID
         ))
-        let declarationRevision: CompilerBSyntaxRevision(
+        let declarationRevision: SyntaxRevision(
             compilerBParseSyntaxRevisionWithResolution(
                 source: fileManagerReadFile(path: declarationPath),
                 resolveRelationships: false
@@ -1387,7 +1387,7 @@ function compilerBLowerAggregateProjection(
             errorCode: 9
         }
         while frameSize % 16 != 0 { frameSize: frameSize + 1 }
-        compilerBSyntaxRevisionDestroy(revision: declarationRevision)
+        syntaxRevisionDestroy(revision: declarationRevision)
     }
     return CompilerBLoweredAggregate(
         errorCode: errorCode,
@@ -1397,7 +1397,7 @@ function compilerBLowerAggregateProjection(
     )
 }
 
-function compilerBLoweredAggregateDiagnostic(errorCode: Int): String {
+function compilerBLoweredAggregateDiagnostic(let errorCode: Int): String {
     if errorCode == 2 { return String("native aggregate field requires an integer representation") }
     if errorCode == 3 { return String("native aggregate field value must carry its declared identity") }
     if errorCode == 4 { return String("native aggregate field value identity does not match its relationship") }
@@ -1410,15 +1410,15 @@ function compilerBLoweredAggregateDiagnostic(errorCode: Int): String {
 }
 
 function compilerBLoweredAppendAggregateOperations(
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int,
-    aggregate: CompilerBLoweredAggregate,
-    fields: CompilerBLoweredAggregateFieldStore
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int,
+    let aggregate: CompilerBLoweredAggregate,
+    let fields: CompilerBLoweredAggregateFieldStore
 ): Int {
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationBeginStorage(),
+        kindCode: semanticOperationBeginStorage(),
         target: 0,
         operand: 0,
         offset: aggregate.frameSize,
@@ -1427,45 +1427,45 @@ function compilerBLoweredAppendAggregateOperations(
     state fieldRow: Int(0)
     while fieldRow < fields.values.count {
         let width: Int(fields.widths.element(index: fieldRow))
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationConstant(),
-            target: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationConstant(),
+            target: semanticTemporaryValue(),
             operand: fields.values.element(index: fieldRow),
             offset: 0,
             width: width
-        ) != 0 || compilerBSemanticOperationGraphAppend(
+        ) != 0 || semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationWrite(),
-            target: compilerBSemanticCurrentStorage(),
-            operand: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationStore(),
+            target: semanticCurrentStorage(),
+            operand: semanticTemporaryValue(),
             offset: fields.offsets.element(index: fieldRow),
             width: width
         ) != 0 { return 0 - 1 }
         fieldRow: fieldRow + 1
     }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationLoad(),
-        target: compilerBSemanticReturnValue(),
-        operand: compilerBSemanticCurrentStorage(),
+        kindCode: semanticOperationLoad(),
+        target: semanticReturnValue(),
+        operand: semanticCurrentStorage(),
         offset: aggregate.resultOffset,
         width: aggregate.resultWidth
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationEndStorage(),
+        kindCode: semanticOperationEndStorage(),
         target: 0,
         operand: 0,
         offset: aggregate.frameSize,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationReturn(),
+        kindCode: semanticOperationReturn(),
         target: 0,
         operand: 0,
         offset: 0,
@@ -1475,132 +1475,132 @@ function compilerBLoweredAppendAggregateOperations(
 }
 
 function compilerBLoweredAppendManyOperations(
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int,
-    many: CompilerBLoweredMany,
-    values: CompilerBLoweredManyValueStore
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int,
+    let many: CompilerBLoweredMany,
+    let values: CompilerBLoweredManyValueStore
 ): Int {
     state frameSize: Int(24 + many.count * many.elementWidth)
     while frameSize % 16 != 0 { frameSize: frameSize + 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationBeginStorage(),
+        kindCode: semanticOperationBeginStorage(),
         target: 0,
         operand: 0,
         offset: frameSize,
         width: 0
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationDeriveAddress(),
-        target: compilerBSemanticDerivedAddress(),
-        operand: compilerBSemanticCurrentStorage(),
+        kindCode: semanticOperationDeriveAddress(),
+        target: semanticDerivedAddress(),
+        operand: semanticCurrentStorage(),
         offset: 24,
         width: 8
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticDerivedAddress(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticDerivedAddress(),
         offset: 0,
         width: 8
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: many.count,
         offset: 0,
         width: 8
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: 8,
         width: 8
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: many.capacity,
         offset: 0,
         width: 8
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: 16,
         width: 8
     ) != 0 { return 0 - 1 }
     state valueRow: Int(0)
     while valueRow < values.values.count {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationConstant(),
-            target: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationConstant(),
+            target: semanticTemporaryValue(),
             operand: values.values.element(index: valueRow),
             offset: 0,
             width: many.elementWidth
         ) != 0 { return 0 - 1 }
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationWrite(),
-            target: compilerBSemanticDerivedAddress(),
-            operand: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationStore(),
+            target: semanticDerivedAddress(),
+            operand: semanticTemporaryValue(),
             offset: valueRow * many.elementWidth,
             width: many.elementWidth
         ) != 0 { return 0 - 1 }
         valueRow: valueRow + 1
     }
     if many.operationCode == 1 {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationLoad(),
-            target: compilerBSemanticReturnValue(),
-            operand: compilerBSemanticCurrentStorage(),
+            kindCode: semanticOperationLoad(),
+            target: semanticReturnValue(),
+            operand: semanticCurrentStorage(),
             offset: 8,
             width: 8
         ) != 0 { return 0 - 1 }
     } else {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationLoad(),
-            target: compilerBSemanticReturnValue(),
-            operand: compilerBSemanticDerivedAddress(),
+            kindCode: semanticOperationLoad(),
+            target: semanticReturnValue(),
+            operand: semanticDerivedAddress(),
             offset: many.elementIndex * many.elementWidth,
             width: many.elementWidth
         ) != 0 { return 0 - 1 }
     }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationEndStorage(),
+        kindCode: semanticOperationEndStorage(),
         target: 0,
         operand: 0,
         offset: frameSize,
         width: 0
     ) != 0 { return 0 - 1 }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationReturn(),
+        kindCode: semanticOperationReturn(),
         target: 0,
         operand: 0,
         offset: 0,
@@ -1610,8 +1610,8 @@ function compilerBLoweredAppendManyOperations(
 }
 
 function compilerBLowerIntegerExpression(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): CompilerBCompileTimeInteger {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -1667,9 +1667,9 @@ function compilerBLowerIntegerExpression(
 }
 
 function compilerBLowerTerminalLocalInteger(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int
 ): CompilerBCompileTimeInteger {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -1763,9 +1763,9 @@ function compilerBLowerTerminalLocalInteger(
 }
 
 function compilerBConditionalAssignmentInteger(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    identity: CompilerBToken
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let identity: CompilerBToken
 ): CompilerBCompileTimeInteger {
     state row: Int(0)
     state count: Int(0)
@@ -1820,7 +1820,7 @@ function compilerBConditionalAssignmentNotFound(): CompilerBConditionalAssignmen
 }
 
 function compilerBConditionalAssignmentFailure(
-    errorCode: Int
+    let errorCode: Int
 ): CompilerBConditionalAssignmentFacts {
     return CompilerBConditionalAssignmentFacts(
         found: true,
@@ -1836,13 +1836,13 @@ function compilerBConditionalAssignmentFailure(
 }
 
 function compilerBConditionalAssignmentValues(
-    initialValue: Int,
-    conditionValue: Int,
-    trueValue: Int,
-    hasAlternative: Bool,
-    alternativeValue: Int,
-    falseLabel: Int,
-    endLabel: Int
+    let initialValue: Int,
+    let conditionValue: Int,
+    let trueValue: Int,
+    let hasAlternative: Bool,
+    let alternativeValue: Int,
+    let falseLabel: Int,
+    let endLabel: Int
 ): CompilerBConditionalAssignmentFacts {
     return CompilerBConditionalAssignmentFacts(
         found: true,
@@ -1858,9 +1858,9 @@ function compilerBConditionalAssignmentValues(
 }
 
 function compilerBFindConditionalAssignmentRows(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int
 ): CompilerBConditionalAssignmentRows {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -1948,8 +1948,8 @@ function compilerBFindConditionalAssignmentRows(
 }
 
 function compilerBLowerConditionalAssignmentRows(
-    revision: CompilerBSyntaxRevision,
-    rows: CompilerBConditionalAssignmentRows
+    let revision: SyntaxRevision,
+    let rows: CompilerBConditionalAssignmentRows
 ): CompilerBConditionalAssignmentFacts {
     let initial: CompilerBCompileTimeInteger(compilerBLowerIntegerExpression(
         revision: revision,
@@ -2042,9 +2042,9 @@ function compilerBLowerConditionalAssignmentRows(
 }
 
 function compilerBLowerConditionalAssignmentTerminalLocal(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int
 ): CompilerBConditionalAssignmentFacts {
     let rows: CompilerBConditionalAssignmentRows(compilerBFindConditionalAssignmentRows(
         revision: revision,
@@ -2061,9 +2061,9 @@ function compilerBLowerConditionalAssignmentTerminalLocal(
 }
 
 function compilerBAppendConditionalExecutionGraph(
-    facts: CompilerBConditionalAssignmentFacts,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let facts: CompilerBConditionalAssignmentFacts,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): Int {
     let beginExecutionID: Int(operations.kindCodes.count)
     let initialExecutionID: Int(beginExecutionID + 1)
@@ -2083,102 +2083,102 @@ function compilerBAppendConditionalExecutionGraph(
     let loadExecutionID: Int(joinExecutionID + 1)
     let endStorageExecutionID: Int(joinExecutionID + 2)
     let returnExecutionID: Int(joinExecutionID + 3)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationBeginStorage(),
+        kindCode: semanticOperationBeginStorage(),
         target: 0,
         operand: 0,
         offset: 16,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: facts.initialValue,
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: facts.conditionValue,
         offset: 0,
         width: 1
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: facts.trueValue,
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: 0,
         width: 8
     ) != 0 { return 0 - 1 }
     if facts.hasAlternative {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationConstant(),
-            target: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationConstant(),
+            target: semanticTemporaryValue(),
             operand: facts.alternativeValue,
             offset: 0,
             width: 8
-        ) != 0 || compilerBSemanticOperationGraphAppend(
+        ) != 0 || semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationWrite(),
-            target: compilerBSemanticCurrentStorage(),
-            operand: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationStore(),
+            target: semanticCurrentStorage(),
+            operand: semanticTemporaryValue(),
             offset: 0,
             width: 8
         ) != 0 { return 0 - 1 }
     }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationNone(),
+        kindCode: semanticOperationNone(),
         target: 0,
         operand: 0,
         offset: 0,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationLoad(),
-        target: compilerBSemanticReturnValue(),
-        operand: compilerBSemanticCurrentStorage(),
+        kindCode: semanticOperationLoad(),
+        target: semanticReturnValue(),
+        operand: semanticCurrentStorage(),
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationEndStorage(),
+        kindCode: semanticOperationEndStorage(),
         target: 0,
         operand: 0,
         offset: 16,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationReturn(),
+        kindCode: semanticOperationReturn(),
         target: 0,
         operand: 0,
         offset: 0,
@@ -2189,49 +2189,49 @@ function compilerBAppendConditionalExecutionGraph(
         sourceExecutionID: beginExecutionID,
         targetExecutionID: initialExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: initialExecutionID,
         targetExecutionID: initialWriteExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: initialWriteExecutionID,
         targetExecutionID: conditionExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: conditionExecutionID,
         targetExecutionID: trueExecutionID,
         ordinal: 0,
-        predicateValue: compilerBSemanticTemporaryValue(),
+        predicateValue: semanticTemporaryValue(),
         predicateExpectedValue: 1
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: conditionExecutionID,
         targetExecutionID: alternativeExecutionID,
         ordinal: 1,
-        predicateValue: compilerBSemanticTemporaryValue(),
+        predicateValue: semanticTemporaryValue(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: trueExecutionID,
         targetExecutionID: trueWriteExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: trueWriteExecutionID,
         targetExecutionID: joinExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     if facts.hasAlternative && compilerBExecutionRelationshipAppend(
@@ -2239,7 +2239,7 @@ function compilerBAppendConditionalExecutionGraph(
         sourceExecutionID: alternativeExecutionID,
         targetExecutionID: alternativeWriteExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     if facts.hasAlternative && compilerBExecutionRelationshipAppend(
@@ -2247,7 +2247,7 @@ function compilerBAppendConditionalExecutionGraph(
         sourceExecutionID: alternativeWriteExecutionID,
         targetExecutionID: joinExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     if compilerBExecutionRelationshipAppend(
@@ -2255,31 +2255,31 @@ function compilerBAppendConditionalExecutionGraph(
         sourceExecutionID: joinExecutionID,
         targetExecutionID: loadExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: loadExecutionID,
         targetExecutionID: endStorageExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: endStorageExecutionID,
         targetExecutionID: returnExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     return 0
 }
 
 function compilerBAppendConditionalExecutionBody(
-    facts: CompilerBConditionalAssignmentFacts,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int,
-    previousExecutionID: Int
+    let facts: CompilerBConditionalAssignmentFacts,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int,
+    let previousExecutionID: Int
 ): Int {
     let conditionExecutionID: Int(operations.kindCodes.count)
     let trueExecutionID: Int(conditionExecutionID + 1)
@@ -2293,54 +2293,54 @@ function compilerBAppendConditionalExecutionBody(
         joinExecutionID: conditionExecutionID + 5
     }
     if !facts.hasAlternative { alternativeExecutionID: joinExecutionID }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: facts.conditionValue,
         offset: 0,
         width: 1
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: facts.trueValue,
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: 0,
         width: 8
     ) != 0 { return 0 - 1 }
     if facts.hasAlternative {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationConstant(),
-            target: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationConstant(),
+            target: semanticTemporaryValue(),
             operand: facts.alternativeValue,
             offset: 0,
             width: 8
-        ) != 0 || compilerBSemanticOperationGraphAppend(
+        ) != 0 || semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationWrite(),
-            target: compilerBSemanticCurrentStorage(),
-            operand: compilerBSemanticTemporaryValue(),
+            kindCode: semanticOperationStore(),
+            target: semanticCurrentStorage(),
+            operand: semanticTemporaryValue(),
             offset: 0,
             width: 8
         ) != 0 { return 0 - 1 }
     }
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationNone(),
+        kindCode: semanticOperationNone(),
         target: 0,
         operand: 0,
         offset: 0,
@@ -2351,35 +2351,35 @@ function compilerBAppendConditionalExecutionBody(
         sourceExecutionID: previousExecutionID,
         targetExecutionID: conditionExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: conditionExecutionID,
         targetExecutionID: trueExecutionID,
         ordinal: 0,
-        predicateValue: compilerBSemanticTemporaryValue(),
+        predicateValue: semanticTemporaryValue(),
         predicateExpectedValue: 1
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: conditionExecutionID,
         targetExecutionID: alternativeExecutionID,
         ordinal: 1,
-        predicateValue: compilerBSemanticTemporaryValue(),
+        predicateValue: semanticTemporaryValue(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: trueExecutionID,
         targetExecutionID: trueWriteExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: trueWriteExecutionID,
         targetExecutionID: joinExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     if facts.hasAlternative && compilerBExecutionRelationshipAppend(
@@ -2387,7 +2387,7 @@ function compilerBAppendConditionalExecutionBody(
         sourceExecutionID: alternativeExecutionID,
         targetExecutionID: alternativeWriteExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     if facts.hasAlternative && compilerBExecutionRelationshipAppend(
@@ -2395,18 +2395,18 @@ function compilerBAppendConditionalExecutionBody(
         sourceExecutionID: alternativeWriteExecutionID,
         targetExecutionID: joinExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     return 0
 }
 
 function compilerBAppendConditionalSequenceExecutionGraph(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): Int {
     let rows: CompilerBConditionalAssignmentRows(compilerBFindConditionalAssignmentRows(
         revision: revision,
@@ -2425,28 +2425,28 @@ function compilerBAppendConditionalSequenceExecutionGraph(
     let beginExecutionID: Int(operations.kindCodes.count)
     let initialExecutionID: Int(beginExecutionID + 1)
     let initialWriteExecutionID: Int(beginExecutionID + 2)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationBeginStorage(),
+        kindCode: semanticOperationBeginStorage(),
         target: 0,
         operand: 0,
         offset: 16,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: initial.value,
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: 0,
         width: 8
     ) != 0 || compilerBExecutionRelationshipAppend(
@@ -2454,14 +2454,14 @@ function compilerBAppendConditionalSequenceExecutionGraph(
         sourceExecutionID: beginExecutionID,
         targetExecutionID: initialExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: initialExecutionID,
         targetExecutionID: initialWriteExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 18 }
     state previousExecutionID: Int(initialWriteExecutionID)
@@ -2498,26 +2498,26 @@ function compilerBAppendConditionalSequenceExecutionGraph(
     let loadExecutionID: Int(operations.kindCodes.count)
     let endStorageExecutionID: Int(loadExecutionID + 1)
     let returnExecutionID: Int(loadExecutionID + 2)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationLoad(),
-        target: compilerBSemanticReturnValue(),
-        operand: compilerBSemanticCurrentStorage(),
+        kindCode: semanticOperationLoad(),
+        target: semanticReturnValue(),
+        operand: semanticCurrentStorage(),
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationEndStorage(),
+        kindCode: semanticOperationEndStorage(),
         target: 0,
         operand: 0,
         offset: 16,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationReturn(),
+        kindCode: semanticOperationReturn(),
         target: 0,
         operand: 0,
         offset: 0,
@@ -2527,27 +2527,27 @@ function compilerBAppendConditionalSequenceExecutionGraph(
         sourceExecutionID: previousExecutionID,
         targetExecutionID: loadExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: loadExecutionID,
         targetExecutionID: endStorageExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: endStorageExecutionID,
         targetExecutionID: returnExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 18 }
     return 0
 }
 
-function compilerBConditionalAssignmentDiagnostic(errorCode: Int): String {
+function compilerBConditionalAssignmentDiagnostic(let errorCode: Int): String {
     if errorCode == 1 { return String("execution terminal local is ambiguous") }
     if errorCode == 3 { return String("execution local initializer is not an integer value") }
     if errorCode == 4 { return String("execution predicate value is not materialized") }
@@ -2560,8 +2560,8 @@ function compilerBConditionalAssignmentDiagnostic(errorCode: Int): String {
 }
 
 function compilerBExecutionCompassPredicateCount(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): Int {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -2595,9 +2595,9 @@ function compilerBExecutionCompassPredicateCount(
 }
 
 function compilerBExecutionCompassLocalRow(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int
 ): Int {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -2639,9 +2639,9 @@ function compilerBExecutionCompassLocalRow(
 }
 
 function compilerBExecutionCompassLocalOffset(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    localRow: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let localRow: Int
 ): Int {
     state offset: Int(0)
     state row: Int(0)
@@ -2655,12 +2655,12 @@ function compilerBExecutionCompassLocalOffset(
 }
 
 function compilerBExecutionCompassAppendOperand(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int,
-    semanticValue: Int,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int,
+    let semanticValue: Int,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): Int {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -2669,10 +2669,10 @@ function compilerBExecutionCompassAppendOperand(
     let executionID: Int(operations.kindCodes.count)
     let kind: Int(revision.process.expressions.kindCodes.element(index: expressionRow))
     if kind == compilerBParserExpressionKindIntegerCode() {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationConstant(),
+            kindCode: semanticOperationConstant(),
             target: semanticValue,
             operand: revision.process.expressions.integerValues.element(index: expressionRow),
             offset: 0,
@@ -2685,12 +2685,12 @@ function compilerBExecutionCompassAppendOperand(
             expressionSyntaxID: expressionSyntaxID
         ))
         if localRow < 0 { return 0 - 1 }
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationLoad(),
+            kindCode: semanticOperationLoad(),
             target: semanticValue,
-            operand: compilerBSemanticCurrentStorage(),
+            operand: semanticCurrentStorage(),
             offset: compilerBExecutionCompassLocalOffset(
                 revision: revision,
                 ownerSyntaxID: ownerSyntaxID,
@@ -2699,7 +2699,7 @@ function compilerBExecutionCompassAppendOperand(
             width: 8
         ) != 0 { return 0 - 1 }
     }
-    if compilerBSemanticExecutionAttachSource(
+    if semanticExecutionAttachSource(
         store: operations,
         executionID: executionID,
         syntaxID: expressionSyntaxID,
@@ -2709,13 +2709,13 @@ function compilerBExecutionCompassAppendOperand(
 }
 
 function compilerBExecutionCompassAppendPredicate(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    expressionSyntaxID: Int,
-    trueTargetExecutionID: Int,
-    falseTargetExecutionID: Int,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let expressionSyntaxID: Int,
+    let trueTargetExecutionID: Int,
+    let falseTargetExecutionID: Int,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): Int {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -2788,15 +2788,15 @@ function compilerBExecutionCompassAppendPredicate(
     }
     if kind == compilerBParserExpressionKindBooleanCode() {
         let executionID: Int(operations.kindCodes.count)
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: functionOrdinal,
-            kindCode: compilerBSemanticOperationConstant(),
-            target: compilerBSemanticComparisonValue(),
+            kindCode: semanticOperationConstant(),
+            target: semanticComparisonValue(),
             operand: revision.process.expressions.integerValues.element(index: expressionRow),
             offset: 0,
             width: 1
-        ) != 0 || compilerBSemanticExecutionAttachSource(
+        ) != 0 || semanticExecutionAttachSource(
             store: operations,
             executionID: executionID,
             syntaxID: expressionSyntaxID,
@@ -2806,14 +2806,14 @@ function compilerBExecutionCompassAppendPredicate(
             sourceExecutionID: executionID,
             targetExecutionID: falseTargetExecutionID,
             ordinal: 0,
-            predicateValue: compilerBSemanticComparisonValue(),
+            predicateValue: semanticComparisonValue(),
             predicateExpectedValue: 0
         ) != 0 || compilerBExecutionRelationshipAppend(
             store: operations,
             sourceExecutionID: executionID,
             targetExecutionID: trueTargetExecutionID,
             ordinal: 1,
-            predicateValue: compilerBSemanticComparisonValue(),
+            predicateValue: semanticComparisonValue(),
             predicateExpectedValue: 1
         ) != 0 { return 0 - 1 }
         return executionID
@@ -2829,7 +2829,7 @@ function compilerBExecutionCompassAppendPredicate(
         expressionSyntaxID: revision.process.comparisons.leftExpressionSyntaxIDs.element(
             index: comparisonRow
         ),
-        semanticValue: compilerBSemanticReturnValue(),
+        semanticValue: semanticReturnValue(),
         operations: operations,
         functionOrdinal: functionOrdinal
     ))
@@ -2840,21 +2840,21 @@ function compilerBExecutionCompassAppendPredicate(
         expressionSyntaxID: revision.process.comparisons.rightExpressionSyntaxIDs.element(
             index: comparisonRow
         ),
-        semanticValue: compilerBSemanticTemporaryValue(),
+        semanticValue: semanticTemporaryValue(),
         operations: operations,
         functionOrdinal: functionOrdinal
     ))
     if secondExecutionID < 0 { return 0 - 1 }
     let compareExecutionID: Int(operations.kindCodes.count)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationCompare(),
-        target: compilerBSemanticReturnValue(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationCompare(),
+        target: semanticReturnValue(),
+        operand: semanticTemporaryValue(),
         offset: revision.process.comparisons.operatorCodes.element(index: comparisonRow),
         width: 8
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: compareExecutionID,
         syntaxID: expressionSyntaxID,
@@ -2864,36 +2864,36 @@ function compilerBExecutionCompassAppendPredicate(
         sourceExecutionID: firstExecutionID,
         targetExecutionID: secondExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: secondExecutionID,
         targetExecutionID: compareExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: compareExecutionID,
         targetExecutionID: falseTargetExecutionID,
         ordinal: 0,
-        predicateValue: compilerBSemanticComparisonValue(),
+        predicateValue: semanticComparisonValue(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: compareExecutionID,
         targetExecutionID: trueTargetExecutionID,
         ordinal: 1,
-        predicateValue: compilerBSemanticComparisonValue(),
+        predicateValue: semanticComparisonValue(),
         predicateExpectedValue: 1
     ) != 0 { return 0 - 1 }
     return firstExecutionID
 }
 
 function compilerBExecutionCompassFirstConditionalRow(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int
 ): Int {
     state result: Int(0 - 1)
     state syntaxID: Int(0)
@@ -2913,8 +2913,8 @@ function compilerBExecutionCompassFirstConditionalRow(
 }
 
 function compilerBExecutionCompassFirstReturnRow(
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int
 ): Int {
     state result: Int(0 - 1)
     state syntaxID: Int(0)
@@ -2933,9 +2933,9 @@ function compilerBExecutionCompassFirstReturnRow(
 }
 
 function compilerBExecutionCompassFunctionOrdinal(
-    functions: CompilerBLoweredFunctionStore,
-    sourceID: Int,
-    syntaxID: Int
+    let functions: CompilerBLoweredFunctionStore,
+    let sourceID: Int,
+    let syntaxID: Int
 ): Int {
     state row: Int(0)
     while row < functions.sourceIDs.count {
@@ -2947,14 +2947,14 @@ function compilerBExecutionCompassFunctionOrdinal(
 }
 
 function compilerBExecutionCompassAppendExternLocal(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    localRow: Int,
-    functions: CompilerBLoweredFunctionStore,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int,
-    previousExecutionID: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let localRow: Int,
+    let functions: CompilerBLoweredFunctionStore,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int,
+    let previousExecutionID: Int
 ): Int {
     state expressionSyntaxID: Int(revision.process.locals.valueExpressionSyntaxIDs.element(
         index: localRow
@@ -3029,7 +3029,7 @@ function compilerBExecutionCompassAppendExternLocal(
         paths: project.sourcePaths,
         index: declarationSourceID
     ))
-    let declarationRevision: CompilerBSyntaxRevision(
+    let declarationRevision: SyntaxRevision(
         compilerBParseSyntaxRevisionWithResolution(
             source: fileManagerReadFile(path: declarationPath),
             resolveRelationships: false
@@ -3039,7 +3039,7 @@ function compilerBExecutionCompassAppendExternLocal(
         revision: declarationRevision,
         functionSyntaxID: declarationSyntaxID
     ))
-    compilerBSyntaxRevisionDestroy(revision: declarationRevision)
+    syntaxRevisionDestroy(revision: declarationRevision)
     if returnType != String("Int") { return 0 - 1 }
     state symbol: String("")
     if compilerBProjectExternSymbol(
@@ -3067,32 +3067,32 @@ function compilerBExecutionCompassAppendExternLocal(
     }
     let callExecutionID: Int(operations.kindCodes.count)
     let writeExecutionID: Int(callExecutionID + 1)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationCall(),
+        kindCode: semanticOperationCall(),
         target: calleeOrdinal,
         operand: 0,
         offset: 0,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticReturnValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticReturnValue(),
         offset: compilerBExecutionCompassLocalOffset(
             revision: revision,
             ownerSyntaxID: ownerSyntaxID,
             localRow: localRow
         ),
         width: 8
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: callExecutionID,
         syntaxID: expressionSyntaxID,
         ownerSyntaxID: ownerSyntaxID
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: writeExecutionID,
         syntaxID: revision.process.locals.syntaxIDs.element(index: localRow),
@@ -3102,28 +3102,28 @@ function compilerBExecutionCompassAppendExternLocal(
         sourceExecutionID: previousExecutionID,
         targetExecutionID: callExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0) || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: callExecutionID,
         targetExecutionID: writeExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     return writeExecutionID
 }
 
 function compilerBExecutionCompassAppendLocal(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    localRow: Int,
-    functions: CompilerBLoweredFunctionStore,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int,
-    previousExecutionID: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let localRow: Int,
+    let functions: CompilerBLoweredFunctionStore,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int,
+    let previousExecutionID: Int
 ): Int {
     let expressionSyntaxID: Int(revision.process.locals.valueExpressionSyntaxIDs.element(
         index: localRow
@@ -3146,32 +3146,32 @@ function compilerBExecutionCompassAppendLocal(
     }
     let constantExecutionID: Int(operations.kindCodes.count)
     let writeExecutionID: Int(constantExecutionID + 1)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticTemporaryValue(),
         operand: value.value,
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationWrite(),
-        target: compilerBSemanticCurrentStorage(),
-        operand: compilerBSemanticTemporaryValue(),
+        kindCode: semanticOperationStore(),
+        target: semanticCurrentStorage(),
+        operand: semanticTemporaryValue(),
         offset: compilerBExecutionCompassLocalOffset(
             revision: revision,
             ownerSyntaxID: ownerSyntaxID,
             localRow: localRow
         ),
         width: 8
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: constantExecutionID,
         syntaxID: expressionSyntaxID,
         ownerSyntaxID: ownerSyntaxID
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: writeExecutionID,
         syntaxID: revision.process.locals.syntaxIDs.element(index: localRow),
@@ -3181,21 +3181,21 @@ function compilerBExecutionCompassAppendLocal(
         sourceExecutionID: previousExecutionID,
         targetExecutionID: constantExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0) || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: constantExecutionID,
         targetExecutionID: writeExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     return writeExecutionID
 }
 
 function compilerBExecutionCompassSystemWriteFunctionOrdinal(
-    functions: CompilerBLoweredFunctionStore
+    let functions: CompilerBLoweredFunctionStore
 ): Int {
     let existing: Int(compilerBExecutionCompassFunctionOrdinal(
         functions: functions,
@@ -3218,9 +3218,9 @@ function compilerBExecutionCompassSystemWriteFunctionOrdinal(
 }
 
 function compilerBExecutionCompassStringMacroDeclarationRow(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    applicationRow: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let applicationRow: Int
 ): Int {
     let identity: CompilerBToken(compilerBRetainedToken(
         store: revision.tokens,
@@ -3260,7 +3260,7 @@ function compilerBExecutionCompassStringMacroDeclarationRow(
                     paths: project.sourcePaths,
                     index: declarationSourceID
                 ))
-                let candidate: CompilerBSyntaxRevision(
+                let candidate: SyntaxRevision(
                     compilerBParseSyntaxRevisionWithResolution(
                         source: fileManagerReadFile(path: declarationPath),
                         resolveRelationships: false
@@ -3297,7 +3297,7 @@ function compilerBExecutionCompassStringMacroDeclarationRow(
                     }
                     parameterRow: parameterRow + 1
                 }
-                compilerBSyntaxRevisionDestroy(revision: candidate)
+                syntaxRevisionDestroy(revision: candidate)
                 if parameterCount == 1 && stringParameterCount == 1 {
                     matchRow: declarationRow
                     matchCount: matchCount + 1
@@ -3311,10 +3311,10 @@ function compilerBExecutionCompassStringMacroDeclarationRow(
 }
 
 function compilerBExecutionCompassMacroOutputCount(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    sourceID: Int,
-    expressionSyntaxID: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let sourceID: Int,
+    let expressionSyntaxID: Int
 ): Int {
     let applicationRow: Int(revision.process.applications.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -3342,7 +3342,7 @@ function compilerBExecutionCompassMacroOutputCount(
         paths: project.sourcePaths,
         index: declarationSourceID
     ))
-    let declarationRevision: CompilerBSyntaxRevision(
+    let declarationRevision: SyntaxRevision(
         compilerBParseSyntaxRevisionWithResolution(
             source: fileManagerReadFile(path: declarationPath),
             resolveRelationships: false
@@ -3356,14 +3356,14 @@ function compilerBExecutionCompassMacroOutputCount(
         ) == declarationSyntaxID { count: count + 1 }
         executionRow: executionRow + 1
     }
-    compilerBSyntaxRevisionDestroy(revision: declarationRevision)
+    syntaxRevisionDestroy(revision: declarationRevision)
     return count
 }
 
 function compilerBExecutionCompassMacroDeclarationRow(
-    project: CompilerBProjectRevision,
-    sourceID: Int,
-    applicationSyntaxID: Int
+    let project: CompilerBProjectRevision,
+    let sourceID: Int,
+    let applicationSyntaxID: Int
 ): Int {
     state declarationSourceID: Int(0 - 1)
     state declarationSyntaxID: Int(0 - 1)
@@ -3403,8 +3403,8 @@ function compilerBExecutionCompassMacroDeclarationRow(
 }
 
 function compilerBExecutionCompassLiteralString(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): String {
     let expressionRow: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -3423,8 +3423,8 @@ function compilerBExecutionCompassLiteralString(
 }
 
 function compilerBExecutionCompassFirstArgumentExpression(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int
 ): Int {
     state result: Int(0 - 1)
     state ordinal: Int(2147483647)
@@ -3442,8 +3442,8 @@ function compilerBExecutionCompassFirstArgumentExpression(
 }
 
 function compilerBExecutionCompassFirstMacroParameterName(
-    revision: CompilerBSyntaxRevision,
-    macroSyntaxID: Int
+    let revision: SyntaxRevision,
+    let macroSyntaxID: Int
 ): String {
     state tokenID: Int(0 - 1)
     state ordinal: Int(2147483647)
@@ -3466,9 +3466,9 @@ function compilerBExecutionCompassFirstMacroParameterName(
 }
 
 function compilerBExecutionCompassArgumentExpressionNamed(
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int,
-    name: String
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int,
+    let name: String
 ): Int {
     state result: Int(0 - 1)
     state count: Int(0)
@@ -3527,8 +3527,8 @@ function compilerBExecutionCompassArgumentExpressionNamed(
 }
 
 function compilerBExecutionCompassExpressionSource(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): String {
     let row: Int(revision.process.expressions.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -3550,8 +3550,8 @@ function compilerBExecutionCompassExpressionSource(
 }
 
 function compilerBExecutionCompassByteStorageSourceExpression(
-    revision: CompilerBSyntaxRevision,
-    expressionSyntaxID: Int
+    let revision: SyntaxRevision,
+    let expressionSyntaxID: Int
 ): Int {
     let applicationRow: Int(revision.process.applications.syntaxIDs.firstIndex(
         value: expressionSyntaxID
@@ -3603,8 +3603,8 @@ function compilerBExecutionCompassByteStorageSourceExpression(
 }
 
 function compilerBExecutionCompassEmitterEffectDeclarationRow(
-    project: CompilerBProjectRevision,
-    macroDeclarationRow: Int
+    let project: CompilerBProjectRevision,
+    let macroDeclarationRow: Int
 ): Int {
     if macroDeclarationRow < 0
         || macroDeclarationRow >= project.declarations.syntaxIDs.count {
@@ -3613,7 +3613,7 @@ function compilerBExecutionCompassEmitterEffectDeclarationRow(
     let sourceID: Int(project.declarations.sourceIDs.element(index: macroDeclarationRow))
     let syntaxID: Int(project.declarations.syntaxIDs.element(index: macroDeclarationRow))
     let path: String(compilerBSourceSetPathAt(paths: project.sourcePaths, index: sourceID))
-    let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
         source: fileManagerReadFile(path: path),
         resolveRelationships: false
     ))
@@ -3659,23 +3659,23 @@ function compilerBExecutionCompassEmitterEffectDeclarationRow(
         }
         executionRow: executionRow + 1
     }
-    compilerBSyntaxRevisionDestroy(revision: revision)
+    syntaxRevisionDestroy(revision: revision)
     if count != 1 { return 0 - 1 }
     return result
 }
 
 function compilerBExecutionCompassEmitterApplicationEffect(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    applicationSyntaxID: Int,
-    macroDeclarationRow: Int,
-    boundName: String,
-    boundValue: String,
-    sourceSyntaxID: Int,
-    ownerSyntaxID: Int,
-    functions: CompilerBLoweredFunctionStore,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let applicationSyntaxID: Int,
+    let macroDeclarationRow: Int,
+    let boundName: String,
+    let boundValue: String,
+    let sourceSyntaxID: Int,
+    let ownerSyntaxID: Int,
+    let functions: CompilerBLoweredFunctionStore,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): Int {
     let effectDeclarationRow: Int(compilerBExecutionCompassEmitterEffectDeclarationRow(
         project: project,
@@ -3759,42 +3759,42 @@ function compilerBExecutionCompassEmitterApplicationEffect(
     ))
     if writeFunctionOrdinal < 0 { return 0 - 1 }
     let executionID: Int(operations.kindCodes.count)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationNone(),
+        kindCode: semanticOperationNone(),
         target: 0,
         operand: 0,
         offset: 0,
         width: 0
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: executionID,
         syntaxID: sourceSyntaxID,
         ownerSyntaxID: ownerSyntaxID
-    ) != 0 || compilerBSemanticExecutionAttachEffect(
+    ) != 0 || semanticExecutionAttachEffect(
         store: operations,
         executionID: executionID,
         declarationRow: effectDeclarationRow
-    ) != 0 || compilerBSemanticOutputEffectAppend(
+    ) != 0 || semanticOutputEffectAppend(
         store: operations,
         executionID: executionID,
         destinationCode: destinationCode,
         bytes: bytes,
-        resultValue: compilerBSemanticReturnValue(),
+        resultValue: semanticReturnValue(),
         outputFunctionOrdinal: writeFunctionOrdinal
     ) != 0 { return 0 - 1 }
     return executionID
 }
 
 function compilerBExecutionCompassAppendMacroOutputEffects(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    sourceID: Int,
-    executionRow: Int,
-    functions: CompilerBLoweredFunctionStore,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let sourceID: Int,
+    let executionRow: Int,
+    let functions: CompilerBLoweredFunctionStore,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): CompilerBOutputEffectLowering {
     let expressionSyntaxID: Int(revision.process.executions.expressionSyntaxIDs.element(
         index: executionRow
@@ -3867,7 +3867,7 @@ function compilerBExecutionCompassAppendMacroOutputEffects(
         paths: project.sourcePaths,
         index: declarationSourceID
     ))
-    let declarationRevision: CompilerBSyntaxRevision(
+    let declarationRevision: SyntaxRevision(
         compilerBParseSyntaxRevisionWithResolution(
             source: fileManagerReadFile(path: declarationPath),
             resolveRelationships: false
@@ -3918,7 +3918,7 @@ function compilerBExecutionCompassAppendMacroOutputEffects(
                     sourceExecutionID: lastExecutionID,
                     targetExecutionID: effectExecutionID,
                     ordinal: 0,
-                    predicateValue: compilerBExecutionNoPredicate(),
+                    predicateValue: semanticNoPredicate(),
                     predicateExpectedValue: 0
                 ) != 0 { errorCode: 4 }
                 lastExecutionID: effectExecutionID
@@ -3927,7 +3927,7 @@ function compilerBExecutionCompassAppendMacroOutputEffects(
         }
         macroExecutionRow: macroExecutionRow + 1
     }
-    compilerBSyntaxRevisionDestroy(revision: declarationRevision)
+    syntaxRevisionDestroy(revision: declarationRevision)
     return CompilerBOutputEffectLowering(
         found: true,
         errorCode: errorCode,
@@ -3938,12 +3938,12 @@ function compilerBExecutionCompassAppendMacroOutputEffects(
 }
 
 function compilerBExecutionCompassAppendReturnPath(
-    revision: CompilerBSyntaxRevision,
-    returnRow: Int,
-    ownerSyntaxID: Int,
-    frameSize: Int,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let revision: SyntaxRevision,
+    let returnRow: Int,
+    let ownerSyntaxID: Int,
+    let frameSize: Int,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): Int {
     let valueExpressionID: Int(revision.process.returns.valueExpressionSyntaxIDs.element(
         index: returnRow
@@ -3956,41 +3956,41 @@ function compilerBExecutionCompassAppendReturnPath(
     let constantExecutionID: Int(operations.kindCodes.count)
     let endExecutionID: Int(constantExecutionID + 1)
     let returnExecutionID: Int(constantExecutionID + 2)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationConstant(),
-        target: compilerBSemanticReturnValue(),
+        kindCode: semanticOperationConstant(),
+        target: semanticReturnValue(),
         operand: value.value,
         offset: 0,
         width: 8
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationEndStorage(),
+        kindCode: semanticOperationEndStorage(),
         target: 0,
         operand: 0,
         offset: frameSize,
         width: 0
-    ) != 0 || compilerBSemanticOperationGraphAppend(
+    ) != 0 || semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationReturn(),
+        kindCode: semanticOperationReturn(),
         target: 0,
         operand: 0,
         offset: 0,
         width: 0
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: constantExecutionID,
         syntaxID: valueExpressionID,
         ownerSyntaxID: ownerSyntaxID
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: endExecutionID,
         syntaxID: revision.process.returns.syntaxIDs.element(index: returnRow),
         ownerSyntaxID: ownerSyntaxID
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: returnExecutionID,
         syntaxID: revision.process.returns.syntaxIDs.element(index: returnRow),
@@ -4000,30 +4000,30 @@ function compilerBExecutionCompassAppendReturnPath(
         sourceExecutionID: constantExecutionID,
         targetExecutionID: endExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 || compilerBExecutionRelationshipAppend(
         store: operations,
         sourceExecutionID: endExecutionID,
         targetExecutionID: returnExecutionID,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 { return 0 - 1 }
     if operations.executionStatusCodes.update(
-        element: compilerBExecutionCursorComplete(),
+        element: semanticCursorComplete(),
         index: returnExecutionID
     ) != 0 { return 0 - 1 }
     return constantExecutionID
 }
 
 function compilerBLowerEarlyReturnExecutionCompass(
-    project: CompilerBProjectRevision,
-    revision: CompilerBSyntaxRevision,
-    ownerSyntaxID: Int,
-    functions: CompilerBLoweredFunctionStore,
-    operations: CompilerBSemanticOperationGraph,
-    functionOrdinal: Int
+    let project: CompilerBProjectRevision,
+    let revision: SyntaxRevision,
+    let ownerSyntaxID: Int,
+    let functions: CompilerBLoweredFunctionStore,
+    let operations: SemanticOperationGraph,
+    let functionOrdinal: Int
 ): CompilerBExecutionCompassLowering {
     let conditionalRow: Int(compilerBExecutionCompassFirstConditionalRow(
         revision: revision,
@@ -4156,15 +4156,15 @@ function compilerBLowerEarlyReturnExecutionCompass(
     state frameSize: Int(localCount * 8)
     if frameSize % 16 != 0 { frameSize: frameSize + 8 }
     let beginExecutionID: Int(operations.kindCodes.count)
-    if compilerBSemanticOperationGraphAppend(
+    if semanticOperationGraphAppend(
         store: operations,
         functionOrdinal: functionOrdinal,
-        kindCode: compilerBSemanticOperationBeginStorage(),
+        kindCode: semanticOperationBeginStorage(),
         target: 0,
         operand: 0,
         offset: frameSize,
         width: 0
-    ) != 0 || compilerBSemanticExecutionAttachSource(
+    ) != 0 || semanticExecutionAttachSource(
         store: operations,
         executionID: beginExecutionID,
         syntaxID: ownerSyntaxID,
@@ -4218,7 +4218,7 @@ function compilerBLowerEarlyReturnExecutionCompass(
         sourceExecutionID: previousExecutionID,
         targetExecutionID: predicateStart,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 {
         return CompilerBExecutionCompassLowering(found: true, errorCode: 8)
@@ -4248,7 +4248,7 @@ function compilerBLowerEarlyReturnExecutionCompass(
                 sourceExecutionID: lastOutputExecutionID,
                 targetExecutionID: output.firstExecutionID,
                 ordinal: 0,
-                predicateValue: compilerBExecutionNoPredicate(),
+                predicateValue: semanticNoPredicate(),
                 predicateExpectedValue: 0
             ) != 0 {
                 return CompilerBExecutionCompassLowering(found: true, errorCode: 8)
@@ -4264,7 +4264,7 @@ function compilerBLowerEarlyReturnExecutionCompass(
             sourceExecutionID: lastOutputExecutionID,
             targetExecutionID: trueReturnStart,
             ordinal: 0,
-            predicateValue: compilerBExecutionNoPredicate(),
+            predicateValue: semanticNoPredicate(),
             predicateExpectedValue: 0
         ) != 0) {
         return CompilerBExecutionCompassLowering(found: true, errorCode: 8)
@@ -4362,7 +4362,7 @@ function compilerBLowerEarlyReturnExecutionCompass(
                 sourceExecutionID: continuationExecutionID,
                 targetExecutionID: laterPredicateStart,
                 ordinal: 0,
-                predicateValue: compilerBExecutionNoPredicate(),
+                predicateValue: semanticNoPredicate(),
                 predicateExpectedValue: 0
             ) != 0 {
                 return CompilerBExecutionCompassLowering(found: true, errorCode: 8)
@@ -4395,7 +4395,7 @@ function compilerBLowerEarlyReturnExecutionCompass(
         sourceExecutionID: continuationExecutionID,
         targetExecutionID: falseReturnStart,
         ordinal: 0,
-        predicateValue: compilerBExecutionNoPredicate(),
+        predicateValue: semanticNoPredicate(),
         predicateExpectedValue: 0
     ) != 0 {
         return CompilerBExecutionCompassLowering(found: true, errorCode: 8)
@@ -4413,7 +4413,7 @@ function compilerBLowerEarlyReturnExecutionCompass(
     return CompilerBExecutionCompassLowering(found: true, errorCode: 0)
 }
 
-function compilerBExecutionCompassDiagnostic(errorCode: Int): String {
+function compilerBExecutionCompassDiagnostic(let errorCode: Int): String {
     if errorCode == 2 { return String("execution compass alternative is not materialized") }
     if errorCode == 3 { return String("execution compass successor has no terminating return") }
     if errorCode == 4 { return String("execution compass successor call effect is not materialized") }
@@ -4426,11 +4426,11 @@ function compilerBExecutionCompassDiagnostic(errorCode: Int): String {
 }
 
 function compilerBLowerProjectEntryFunction(
-    project: CompilerBProjectRevision,
-    declarationRow: Int,
-    functions: CompilerBLoweredFunctionStore,
-    operations: CompilerBSemanticOperationGraph,
-    diagnostic: String
+    let project: CompilerBProjectRevision,
+    let declarationRow: Int,
+    let functions: CompilerBLoweredFunctionStore,
+    let operations: SemanticOperationGraph,
+    let diagnostic: String
 ): Int {
     let sourceID: Int(project.declarations.sourceIDs.element(index: declarationRow))
     let syntaxID: Int(project.declarations.syntaxIDs.element(index: declarationRow))
@@ -4438,7 +4438,7 @@ function compilerBLowerProjectEntryFunction(
         paths: project.sourcePaths,
         index: sourceID
     ))
-    let revision: CompilerBSyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
+    let revision: SyntaxRevision(compilerBParseSyntaxRevisionWithResolution(
         source: fileManagerReadFile(path: sourcePath),
         resolveRelationships: false
     ))
@@ -4504,18 +4504,18 @@ function compilerBLowerProjectEntryFunction(
             )
             if literal < 0 || literal > 65535 {
                 diagnostic.append(text: "first native backend slice requires a 16-bit nonnegative entry result")
-            } else if compilerBSemanticOperationGraphAppend(
+            } else if semanticOperationGraphAppend(
                 store: operations,
                 functionOrdinal: 0,
-                kindCode: compilerBSemanticOperationConstant(),
-                target: compilerBSemanticReturnValue(),
+                kindCode: semanticOperationConstant(),
+                target: semanticReturnValue(),
                 operand: literal,
                 offset: 0,
                 width: 8
-            ) != 0 || compilerBSemanticOperationGraphAppend(
+            ) != 0 || semanticOperationGraphAppend(
                 store: operations,
                 functionOrdinal: 0,
-                kindCode: compilerBSemanticOperationReturn(),
+                kindCode: semanticOperationReturn(),
                 target: 0,
                 operand: 0,
                 offset: 0,
@@ -4583,7 +4583,7 @@ function compilerBLowerProjectEntryFunction(
                         paths: project.sourcePaths,
                         index: calleeSourceID
                     ))
-                    let calleeRevision: CompilerBSyntaxRevision(
+                    let calleeRevision: SyntaxRevision(
                         compilerBParseSyntaxRevisionWithResolution(
                             source: fileManagerReadFile(path: calleePath),
                             resolveRelationships: false
@@ -4621,34 +4621,34 @@ function compilerBLowerProjectEntryFunction(
                                 sourceID: calleeSourceID,
                                 syntaxID: calleeSyntaxID,
                                 returnsValue: true
-                            ) != 0 || compilerBSemanticOperationGraphAppend(
+                            ) != 0 || semanticOperationGraphAppend(
                                 store: operations,
                                 functionOrdinal: calleeOrdinal,
-                                kindCode: compilerBSemanticOperationConstant(),
-                                target: compilerBSemanticReturnValue(),
+                                kindCode: semanticOperationConstant(),
+                                target: semanticReturnValue(),
                                 operand: calleeLiteral,
                                 offset: 0,
                                 width: 8
-                            ) != 0 || compilerBSemanticOperationGraphAppend(
+                            ) != 0 || semanticOperationGraphAppend(
                                 store: operations,
                                 functionOrdinal: calleeOrdinal,
-                                kindCode: compilerBSemanticOperationReturn(),
+                                kindCode: semanticOperationReturn(),
                                 target: 0,
                                 operand: 0,
                                 offset: 0,
                                 width: 0
-                            ) != 0 || compilerBSemanticOperationGraphAppend(
+                            ) != 0 || semanticOperationGraphAppend(
                                 store: operations,
                                 functionOrdinal: 0,
-                                kindCode: compilerBSemanticOperationCall(),
+                                kindCode: semanticOperationCall(),
                                 target: calleeOrdinal,
                                 operand: 0,
                                 offset: 0,
                                 width: 0
-                            ) != 0 || compilerBSemanticOperationGraphAppend(
+                            ) != 0 || semanticOperationGraphAppend(
                                 store: operations,
                                 functionOrdinal: 0,
-                                kindCode: compilerBSemanticOperationReturn(),
+                                kindCode: semanticOperationReturn(),
                                 target: 0,
                                 operand: 0,
                                 offset: 0,
@@ -4658,7 +4658,7 @@ function compilerBLowerProjectEntryFunction(
                             }
                         }
                     }
-                    compilerBSyntaxRevisionDestroy(revision: calleeRevision)
+                    syntaxRevisionDestroy(revision: calleeRevision)
                 }
             }
         } else if revision.process.expressions.kindCodes.element(index: resultRow)
@@ -4740,18 +4740,18 @@ function compilerBLowerProjectEntryFunction(
                     diagnostic.append(text: "native entry terminal local is not a materialized integer value")
                 } else if local.value < 0 {
                     diagnostic.append(text: "native entry terminal local requires a nonnegative integer")
-                } else if compilerBSemanticOperationGraphAppend(
+                } else if semanticOperationGraphAppend(
                     store: operations,
                     functionOrdinal: 0,
-                    kindCode: compilerBSemanticOperationConstant(),
-                    target: compilerBSemanticReturnValue(),
+                    kindCode: semanticOperationConstant(),
+                    target: semanticReturnValue(),
                     operand: local.value,
                     offset: 0,
                     width: 8
-                ) != 0 || compilerBSemanticOperationGraphAppend(
+                ) != 0 || semanticOperationGraphAppend(
                     store: operations,
                     functionOrdinal: 0,
-                    kindCode: compilerBSemanticOperationReturn(),
+                    kindCode: semanticOperationReturn(),
                     target: 0,
                     operand: 0,
                     offset: 0,
@@ -4773,10 +4773,10 @@ function compilerBLowerProjectEntryFunction(
         }
     }
     if diagnostic == "" && returnType == String("Void") {
-        if compilerBSemanticOperationGraphAppend(
+        if semanticOperationGraphAppend(
             store: operations,
             functionOrdinal: 0,
-            kindCode: compilerBSemanticOperationReturn(),
+            kindCode: semanticOperationReturn(),
             target: 0,
             operand: 0,
             offset: 0,
@@ -4785,36 +4785,36 @@ function compilerBLowerProjectEntryFunction(
             diagnostic.append(text: "could not record the lowered entry return")
         }
     }
-    if compilerBSyntaxRevisionDestroy(revision: revision) != 0 {
+    if syntaxRevisionDestroy(revision: revision) != 0 {
         diagnostic.append(text: "could not release the lowered entry syntax")
     }
     if diagnostic != "" { return 0 - 1 }
     return 0
 }
 
-function compilerBAppleArm64RegisterForSemanticValue(value: Int): Int {
-    if value == compilerBSemanticCurrentStorage() {
+function compilerBAppleArm64RegisterForSemanticValue(let value: Int): Int {
+    if value == semanticCurrentStorage() {
         return compilerBAppleArm64StackPointer()
     }
-    if value == compilerBSemanticReturnValue() {
+    if value == semanticReturnValue() {
         return compilerBAppleArm64ReturnRegister()
     }
-    if value == compilerBSemanticDerivedAddress() {
+    if value == semanticDerivedAddress() {
         return compilerBAppleArm64StorageAddressRegister()
     }
-    if value == compilerBSemanticTemporaryValue() {
+    if value == semanticTemporaryValue() {
         return compilerBAppleArm64TemporaryRegister()
     }
-    if value == compilerBSemanticComparisonValue() {
+    if value == semanticComparisonValue() {
         return compilerBAppleArm64ComparisonRegister()
     }
     return compilerBAppleArm64NoRegister()
 }
 
 function compilerBMaterializeAppleArm64OutputEffect(
-    semantic: CompilerBSemanticOperationGraph,
-    executionID: Int,
-    instructions: CompilerBAppleArm64InstructionGraph
+    let semantic: SemanticOperationGraph,
+    let executionID: Int,
+    let instructions: CompilerBAppleArm64InstructionGraph
 ): Int {
     let outputRow: Int(semantic.outputExecutionIDs.firstIndex(value: executionID))
     if outputRow < 0 { return 1 }
@@ -4893,9 +4893,9 @@ function compilerBMaterializeAppleArm64OutputEffect(
 }
 
 function compilerBMaterializeAppleArm64Instruction(
-    semantic: CompilerBSemanticOperationGraph,
-    row: Int,
-    instructions: CompilerBAppleArm64InstructionGraph
+    let semantic: SemanticOperationGraph,
+    let row: Int,
+    let instructions: CompilerBAppleArm64InstructionGraph
 ): Int {
     let functionOrdinal: Int(semantic.functionOrdinals.element(index: row))
     let operation: Int(semantic.kindCodes.element(index: row))
@@ -4909,8 +4909,8 @@ function compilerBMaterializeAppleArm64Instruction(
         instructions: instructions
     ))
     if outputStatus <= 0 { return outputStatus }
-    if operation == compilerBSemanticOperationNone() { return 0 }
-    if operation == compilerBSemanticOperationConstant() {
+    if operation == semanticOperationNone() { return 0 }
+    if operation == semanticOperationConstant() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -4924,7 +4924,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationBeginStorage() {
+    if operation == semanticOperationBeginStorage() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -4936,7 +4936,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationDeriveAddress() {
+    if operation == semanticOperationDeriveAddress() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -4952,7 +4952,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationWrite() {
+    if operation == semanticOperationStore() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -4968,7 +4968,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationLoad() {
+    if operation == semanticOperationLoad() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -4984,7 +4984,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationCall() {
+    if operation == semanticOperationCall() {
         if compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -5024,7 +5024,7 @@ function compilerBMaterializeAppleArm64Instruction(
         ) != 0 { return 0 - 1 }
         return 0
     }
-    if operation == compilerBSemanticOperationEndStorage() {
+    if operation == semanticOperationEndStorage() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -5036,7 +5036,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationReturn() {
+    if operation == semanticOperationReturn() {
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -5048,7 +5048,7 @@ function compilerBMaterializeAppleArm64Instruction(
             targetFunctionOrdinal: 0 - 1
         )
     }
-    if operation == compilerBSemanticOperationCompare() {
+    if operation == semanticOperationCompare() {
         if compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
             functionOrdinal: functionOrdinal,
@@ -5078,8 +5078,8 @@ function compilerBMaterializeAppleArm64Instruction(
 }
 
 function compilerBExecutionRequiresLabel(
-    semantic: CompilerBSemanticOperationGraph,
-    executionID: Int
+    let semantic: SemanticOperationGraph,
+    let executionID: Int
 ): Bool {
     state row: Int(0)
     while row < semantic.nextTargetExecutionIDs.count {
@@ -5091,7 +5091,7 @@ function compilerBExecutionRequiresLabel(
                 semantic.nextPredicateValues.element(index: row)
             )
             if sourceExecutionID + 1 != executionID
-                || predicateValue != compilerBExecutionNoPredicate() {
+                || predicateValue != semanticNoPredicate() {
                 return true
             }
         }
@@ -5101,9 +5101,9 @@ function compilerBExecutionRequiresLabel(
 }
 
 function compilerBMaterializeExecutionRelationships(
-    semantic: CompilerBSemanticOperationGraph,
-    executionID: Int,
-    instructions: CompilerBAppleArm64InstructionGraph
+    let semantic: SemanticOperationGraph,
+    let executionID: Int,
+    let instructions: CompilerBAppleArm64InstructionGraph
 ): Int {
     let cardinality: Int(compilerBExecutionCardinality(
         store: semantic,
@@ -5126,7 +5126,7 @@ function compilerBMaterializeExecutionRelationships(
     if cardinality == 1 {
         let target: Int(semantic.nextTargetExecutionIDs.element(index: firstRow))
         let predicate: Int(semantic.nextPredicateValues.element(index: firstRow))
-        if predicate != compilerBExecutionNoPredicate() { return 0 - 1 }
+        if predicate != semanticNoPredicate() { return 0 - 1 }
         if target == executionID + 1 { return 0 }
         return compilerBAppleArm64InstructionGraphAppend(
             graph: instructions,
@@ -5141,7 +5141,7 @@ function compilerBMaterializeExecutionRelationships(
     }
     let firstPredicate: Int(semantic.nextPredicateValues.element(index: firstRow))
     let secondPredicate: Int(semantic.nextPredicateValues.element(index: secondRow))
-    if firstPredicate == compilerBExecutionNoPredicate()
+    if firstPredicate == semanticNoPredicate()
         || firstPredicate != secondPredicate {
         return 0 - 1
     }
@@ -5195,10 +5195,10 @@ function compilerBMaterializeExecutionRelationships(
 }
 
 function compilerBMaterializeAppleArm64Program(
-    functions: CompilerBLoweredFunctionStore,
-    semantic: CompilerBSemanticOperationGraph,
-    entryFunctionOrdinal: Int,
-    instructions: CompilerBAppleArm64InstructionGraph
+    let functions: CompilerBLoweredFunctionStore,
+    let semantic: SemanticOperationGraph,
+    let entryFunctionOrdinal: Int,
+    let instructions: CompilerBAppleArm64InstructionGraph
 ): Int {
     state row: Int(0)
     while row < semantic.kindCodes.count {
@@ -5292,7 +5292,7 @@ function compilerBMaterializeAppleArm64Program(
     return 0
 }
 
-function compilerBAppleArm64RegisterName(register: Int, width: Int): String {
+function compilerBAppleArm64RegisterName(let register: Int, let width: Int): String {
     if register == compilerBAppleArm64StackPointer() { return String("sp") }
     if register == compilerBAppleArm64ReturnRegister() {
         if width == 1 { return String("w0") }
@@ -5315,10 +5315,10 @@ function compilerBAppleArm64RegisterName(register: Int, width: Int): String {
 }
 
 function compilerBRenderAppleArm64Constant(
-    targetRegisterCode: Int,
-    operand: Int,
-    width: Int,
-    output: String
+    let targetRegisterCode: Int,
+    let operand: Int,
+    let width: Int,
+    let output: String
 ): Int {
     let targetRegister: String(compilerBAppleArm64RegisterName(
         register: targetRegisterCode,
@@ -5344,9 +5344,9 @@ function compilerBRenderAppleArm64Constant(
 }
 
 function compilerBRenderAppleArm64Store(
-    instructions: CompilerBAppleArm64InstructionGraph,
-    instructionRow: Int,
-    output: String
+    let instructions: CompilerBAppleArm64InstructionGraph,
+    let instructionRow: Int,
+    let output: String
 ): Int {
     let offset: Int(instructions.immediates.element(index: instructionRow))
     let width: Int(instructions.widths.element(index: instructionRow))
@@ -5373,9 +5373,9 @@ function compilerBRenderAppleArm64Store(
 }
 
 function compilerBRenderAppleArm64Load(
-    instructions: CompilerBAppleArm64InstructionGraph,
-    instructionRow: Int,
-    output: String
+    let instructions: CompilerBAppleArm64InstructionGraph,
+    let instructionRow: Int,
+    let output: String
 ): Int {
     let offset: Int(instructions.immediates.element(index: instructionRow))
     let width: Int(instructions.widths.element(index: instructionRow))
@@ -5402,10 +5402,10 @@ function compilerBRenderAppleArm64Load(
 }
 
 function compilerBRenderAppleArm64Instruction(
-    functions: CompilerBLoweredFunctionStore,
-    instructions: CompilerBAppleArm64InstructionGraph,
-    instructionRow: Int,
-    output: String
+    let functions: CompilerBLoweredFunctionStore,
+    let instructions: CompilerBAppleArm64InstructionGraph,
+    let instructionRow: Int,
+    let output: String
 ): Int {
     let instructionCode: Int(instructions.instructionCodes.element(
         index: instructionRow
@@ -5556,11 +5556,11 @@ function compilerBRenderAppleArm64Instruction(
 }
 
 function compilerBRenderAppleArm64Function(
-    functions: CompilerBLoweredFunctionStore,
-    instructions: CompilerBAppleArm64InstructionGraph,
-    functionOrdinal: Int,
-    mainAdapter: Bool,
-    output: String
+    let functions: CompilerBLoweredFunctionStore,
+    let instructions: CompilerBAppleArm64InstructionGraph,
+    let functionOrdinal: Int,
+    let mainAdapter: Bool,
+    let output: String
 ): Int {
     output.append(text: ".p2align 2\n")
     if mainAdapter {
@@ -5592,9 +5592,9 @@ function compilerBRenderAppleArm64Function(
 }
 
 function compilerBRenderAppleArm64Program(
-    functions: CompilerBLoweredFunctionStore,
-    instructions: CompilerBAppleArm64InstructionGraph,
-    output: String
+    let functions: CompilerBLoweredFunctionStore,
+    let instructions: CompilerBAppleArm64InstructionGraph,
+    let output: String
 ): Int {
     output.append(text: ".section __TEXT,__text,regular,pure_instructions\n")
     state functionOrdinal: Int(0)
@@ -5643,7 +5643,7 @@ function compilerBRenderAppleArm64Program(
 }
 
 function compilerBValidateRuntimeEmitterApplications(
-    project: CompilerBProjectRevision
+    let project: CompilerBProjectRevision
 ): Int {
     state applicationRow: Int(0)
     while applicationRow < project.macroApplications.syntaxIDs.count {
@@ -5676,14 +5676,10 @@ function compilerBValidateRuntimeEmitterApplications(
 }
 
 function compilerBEmitProjectAssembly(
-    project: CompilerBProjectRevision,
-    output: String,
-    diagnostic: String
+    let project: CompilerBProjectRevision,
+    let output: String,
+    let diagnostic: String
 ): Int {
-    if compilerBValidateRuntimeEmitterApplications(project: project) != 0 {
-        diagnostic.append(text: "runtime effect macro requires an owning execution compass")
-        return 0 - 1
-    }
     let entryRow: Int(compilerBProjectMainEntryRow(project: project))
     if entryRow == 0 - 1 {
         diagnostic.append(text: "project has no emitted @main block")
@@ -5701,62 +5697,101 @@ function compilerBEmitProjectAssembly(
         diagnostic.append(text: "emitted @main call does not resolve to a Function")
         return 0 - 4
     }
-    let functions: CompilerBLoweredFunctionStore(
-        compilerBLoweredFunctionStoreCreate(capacity: 4)
-    )
-    let operations: CompilerBSemanticOperationGraph(
-        compilerBSemanticOperationGraphCreate(capacity: 32)
-    )
-    let lowerStatus: Int(compilerBLowerProjectEntryFunction(
-        project: project,
-        declarationRow: declarationRow,
-        functions: functions,
-        operations: operations,
-        diagnostic: diagnostic
+    let entrySourceID: Int(project.declarations.sourceIDs.element(
+        index: declarationRow
     ))
-    if lowerStatus != 0 {
-        compilerBSemanticOperationGraphDestroy(store: operations)
-        compilerBLoweredFunctionStoreDestroy(store: functions)
+    let entrySyntaxID: Int(project.declarations.syntaxIDs.element(
+        index: declarationRow
+    ))
+    let program: ProgramLowering(lowerProgram(
+        project: project,
+        entry: Declaration(
+            row: declarationRow,
+            sourceID: entrySourceID,
+            syntaxID: entrySyntaxID
+        )
+    ))
+    if !program.valid {
+        if program.diagnostics.sourceIDs.count != 0 {
+            let firstSourceID: Int(
+                program.diagnostics.sourceIDs.element(index: 0)
+            )
+            let firstSyntaxID: Int(
+                program.diagnostics.syntaxIDs.element(index: 0)
+            )
+            let firstMessage: String(loweringDiagnosticMessage(
+                store: program.diagnostics,
+                row: 0
+            ))
+            diagnostic.append(
+                text: "program graph lowering failed at \(firstSourceID):\(firstSyntaxID): \(firstMessage)"
+            )
+        } else {
+            diagnostic.append(text: "program graph lowering failed")
+        }
+        programLoweringDestroy(lowering: program)
         return 0 - 5
     }
-    let instructions: CompilerBAppleArm64InstructionGraph(
-        compilerBAppleArm64InstructionGraphCreate(capacity: 128)
+    let graphAssembly: ProgramGraphAssembly(
+        materializeProgramGraphAppleArm64(
+            lowering: program,
+            entryFunctionID: 0
+        )
     )
-    let materializeStatus: Int(compilerBMaterializeAppleArm64Program(
-        functions: functions,
-        semantic: operations,
-        entryFunctionOrdinal: 0,
-        instructions: instructions
-    ))
-    if materializeStatus != 0 {
-        compilerBAppleArm64InstructionGraphDestroy(graph: instructions)
-        compilerBSemanticOperationGraphDestroy(store: operations)
-        compilerBLoweredFunctionStoreDestroy(store: functions)
-        diagnostic.append(text: "Apple arm64 materialization rejected the semantic graph")
+    if !graphAssembly.valid {
+        diagnostic.append(text: graphAssembly.diagnostic)
+        programLoweringDestroy(lowering: program)
         return 0 - 6
     }
-    let renderStatus: Int(compilerBRenderAppleArm64Program(
-        functions: functions,
-        instructions: instructions,
-        output: output
-    ))
-    state destroyStatus: Int(0)
-    if compilerBAppleArm64InstructionGraphDestroy(graph: instructions) != 0 {
-        destroyStatus: 0 - 1
-    }
-    if compilerBSemanticOperationGraphDestroy(store: operations) != 0 {
-        destroyStatus: 0 - 1
-    }
-    if compilerBLoweredFunctionStoreDestroy(store: functions) != 0 {
-        destroyStatus: 0 - 1
-    }
-    if destroyStatus != 0 {
-        diagnostic.append(text: "could not release the lowered program")
+    output.append(text: graphAssembly.text)
+    if programLoweringDestroy(lowering: program) != 0 {
+        diagnostic.append(text: "could not release the lowered ProgramGraph")
         return 0 - 7
     }
-    if renderStatus != 0 {
-        diagnostic.append(text: "Apple arm64 renderer rejected an instruction")
-        return 0 - 8
-    }
     return 0
+}
+
+function compilerBEncodeProjectObject(
+    let project: CompilerBProjectRevision,
+    let target: CompilationTarget
+): RelocatableObject {
+    let entryRow: Int(compilerBProjectMainEntryRow(project: project))
+    if entryRow < 0 {
+        return relocatableObjectFailure(
+            message: "Project must emit exactly one @main block"
+        )
+    }
+    let declarationRow: Int(compilerBProjectEntryFunctionDeclarationRow(
+        project: project,
+        entryRow: entryRow
+    ))
+    if declarationRow < 0 {
+        return relocatableObjectFailure(
+            message: "Emitted @main call does not resolve to a Function"
+        )
+    }
+    let program: ProgramLowering(lowerProgram(
+        project: project,
+        entry: Declaration(
+            row: declarationRow,
+            sourceID: project.declarations.sourceIDs.element(
+                index: declarationRow
+            ),
+            syntaxID: project.declarations.syntaxIDs.element(
+                index: declarationRow
+            )
+        )
+    ))
+    if !program.valid {
+        programLoweringDestroy(lowering: program)
+        return relocatableObjectFailure(
+            message: "ProgramGraph lowering failed"
+        )
+    }
+    let object: RelocatableObject(encodeProgram(
+        lowering: program,
+        target: target
+    ))
+    programLoweringDestroy(lowering: program)
+    return object
 }

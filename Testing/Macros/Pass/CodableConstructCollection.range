@@ -33,7 +33,7 @@ construct State {
 
 construct Binding {}
 
-macro codableEncodeBody(properties: Array<@stored>) -> Int {
+macro codableEncodeBody(let properties: Array<@stored>) -> Int {
     if properties.count == 2 {
         #environment {
             let encodedProperties: Int(2)
@@ -42,7 +42,7 @@ macro codableEncodeBody(properties: Array<@stored>) -> Int {
     return properties.count
 }
 
-macro codableDecodeBody(properties: Array<@stored>) -> Int {
+macro codableDecodeBody(let properties: Array<@stored>) -> Int {
     if properties.count == 2 {
         #environment {
             let decodedProperties: Int(2)
@@ -59,12 +59,12 @@ macro codable(): Construct {
     if properties.count == 2 {
         #environment {
             extension #environment.target.Declaration.identifier {
-                function encode(to encoder: Encoder): Int {
+                function encode(let encoder: Encoder): Int {
                     @codableEncodeBody(properties: #properties)
                     return 0
                 }
 
-                function decode(from decoder: Decoder): Int {
+                function decode(let decoder: Decoder): Int {
                     @codableDecodeBody(properties: #properties)
                     return 0
                 }

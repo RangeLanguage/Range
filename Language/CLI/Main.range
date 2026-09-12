@@ -1,0 +1,106 @@
+function rangeCommandLineArguments(let start: Int): @many String {
+    state arguments: @many()
+    state index: Int(start)
+    while index < commandLineArgumentCount() {
+        arguments.append(element: commandLineArgument(index: index))
+        index: index + 1
+    }
+    return arguments
+}
+
+function rangeToolchainRoot(let projectPath: String): URL {
+    let projectSuffix: String("/Language/Project.range")
+    if fileManagerHasSuffix(value: projectPath, suffix: projectSuffix) {
+        return fileURL(path: projectPath.substring(
+            start: 0,
+            end: projectPath.count - projectSuffix.count
+        ))
+    }
+    let languageSuffix: String("/Language")
+    if fileManagerHasSuffix(value: projectPath, suffix: languageSuffix) {
+        return fileURL(path: projectPath.substring(
+            start: 0,
+            end: projectPath.count - languageSuffix.count
+        ))
+    }
+    return fileURL(path: projectPath)
+}
+
+function rangePrintUsage(): Int {
+    print(message: "usage: range <version|register|projects|compile|run>")
+    return 64
+}
+
+function rangeCompilerBodyGate(let command: String): Int {
+    print(
+        value: "range \(command): compiler-body graph lowering is not materialized"
+    )
+    return 69
+}
+
+function rangeRegisterCommand(
+    let registry: ProjectRegistry,
+    let argumentCount: Int
+): Int {
+    if argumentCount != 2 && argumentCount != 3 {
+        return rangePrintUsage()
+    }
+    let identity: String(commandLineArgument(index: 1))
+    let projects: URL(registry.toolchainRoot.appending(component: "Projects"))
+    state root: URL(projects.appending(component: identity))
+    if argumentCount == 3 {
+        root: fileURL(path: commandLineArgument(index: 2))
+    }
+    return projectRegistryCreate(
+        registry: registry,
+        identity: identity,
+        root: root
+    )
+}
+
+function entry(let path: String): Int {
+    let argumentCount: Int(commandLineArgumentCount())
+    if argumentCount == 0 { return rangePrintUsage() }
+
+    let command: String(commandLineArgument(index: 0))
+    let toolchainRoot: URL(rangeToolchainRoot(projectPath: path))
+    let registry: ProjectRegistry(projectRegistry(
+        toolchainRoot: toolchainRoot
+    ))
+    if command == "version" || command == "--version" {
+        print(message: "Range 0.1.0")
+        return 0
+    }
+    if command == "register" {
+        return rangeRegisterCommand(
+            registry: registry,
+            argumentCount: argumentCount
+        )
+    }
+    if command == "projects" {
+        if argumentCount != 1 { return rangePrintUsage() }
+        return projectRegistryList(registry: registry)
+    }
+    if command == "compile" {
+        if argumentCount != 2 && argumentCount != 4 {
+            return rangePrintUsage()
+        }
+        let project: Project(projectRegistryResolve(
+            registry: registry,
+            reference: commandLineArgument(index: 1)
+        ))
+        state output: URL(projectBuildOutput(project: project))
+        if argumentCount == 4 {
+            if commandLineArgument(index: 2) != "--output" {
+                return rangePrintUsage()
+            }
+            output: fileURL(path: commandLineArgument(index: 3))
+        }
+        return rangeCompilerBodyGate(command: "compile")
+    }
+    if command == "run" {
+        if argumentCount < 2 { return rangePrintUsage() }
+        return rangeCompilerBodyGate(command: "run")
+    }
+    return rangePrintUsage()
+}

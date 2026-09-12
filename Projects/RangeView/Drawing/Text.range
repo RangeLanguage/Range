@@ -1,4 +1,4 @@
 @view
 construct Text {
-    let _ value: String
+    let value: String
 }

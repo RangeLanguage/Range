@@ -43,13 +43,13 @@ enum DelimiterPair {
     case angles
 }
 
-macro choose(_ shape: DelimiterPair): Member -> DelimiterPair {
+macro choose(let shape: DelimiterPair): Member -> DelimiterPair {
     return shape
 }
 
 @syntax
 construct Value {
-    @choose(.braces)
+    @choose(shape: .braces)
     let payload: Int
 }
 

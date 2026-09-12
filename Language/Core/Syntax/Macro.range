@@ -1,29 +1,24 @@
 @syntax {
-    (
-    $parameters
-    )
-    :
-    $input
-    ->
-    $output
+    $macros
+    macro $identity<$generics>($inputs): $target -> $result {
+        $members
+    }
 }
-@syntax {
-    (
-    $parameters
-    )
-    :
-    $output
-}
-construct Transformation {
-    @many
-    state parameters: Parameter
-    state input: @syntax?
-    state output: @syntax
-}
-
 @syntax {
     $macros
-    macro $identity $transformation {
+    macro $identity<$generics>($inputs): $target {
+        $members
+    }
+}
+@syntax {
+    $macros
+    macro $identity($inputs): $target -> $result {
+        $members
+    }
+}
+@syntax {
+    $macros
+    macro $identity($inputs): $target {
         $members
     }
 }
@@ -31,7 +26,13 @@ construct Macro {
     @many
     state macros: Macro
     state identity: Identity
-    state transformation: Transformation
+
+    @many
+    state generics: Let
+    @many
+    state inputs: Let | Binding
+    state target: @syntax
+    state result: @syntax?
 
     @many
     state members: @syntax
