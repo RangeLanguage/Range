@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Builds the C implementation of the Range compiler.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+SOURCE_DIR="$REPO_ROOT/Language/Compiler/Source"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "usage: build-range-compiler <output> [--sanitize]" >&2
+    exit 64
+fi
+output="$1"
+sanitize=()
+for option in "${@:2}"; do
+    case "$option" in
+        --sanitize) sanitize=(-fsanitize=address,undefined -fno-omit-frame-pointer -g) ;;
+        *) echo "unknown option: $option" >&2; exit 64 ;;
+    esac
+done
+
+mkdir -p "$(dirname "$output")"
+temporary="$output.$$"
+trap 'rm -f "$temporary"' EXIT
+clang -std=c17 -Wall -Wextra -Werror -O1 ${sanitize[@]+"${sanitize[@]}"} \
+    "$SOURCE_DIR"/*.c \
+    -o "$temporary"
+chmod 755 "$temporary"
+mv -f "$temporary" "$output"

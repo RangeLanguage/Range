@@ -1,9 +1,0 @@
-macro commandLine(): Construct -> Void {
-    let project: #environment.filter(for: @project)
-
-    #environment {
-        @main {
-            entry(path: project.path)
-        }
-    }
-}

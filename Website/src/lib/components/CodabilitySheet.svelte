@@ -14,7 +14,7 @@
     type CodabilityFocusState,
   } from "$lib/codability-focus";
   import codableSource from "$lib/sources/Codable.range?raw";
-  import commandGroupSource from "../../../../Language/Core/Macros/CommandGroup.range?raw";
+  import commandGroupSource from "../../../../Development/DeferredCore/Macros/CommandGroup.range?raw";
 
   const layoutTracker = getContext<RangeLayoutTracker | undefined>(
     RANGE_LAYOUT_TRACKER_CONTEXT,

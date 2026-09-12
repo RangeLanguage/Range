@@ -1,5 +1,0 @@
-function answer(): Int { 42 }
-
-function unused(): Int { 7 }
-
-function start(): Int { answer() }

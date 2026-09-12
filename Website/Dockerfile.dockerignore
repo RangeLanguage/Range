@@ -2,11 +2,21 @@
 
 !Website/
 !Website/**
-!Language/
-!Language/Core/
-!Language/Core/Macros/
-!Language/Core/Macros/CommandGroup.range
-!Language/Core/Macros/Main.range
+!Development/
+!Development/DeferredCore/
+!Development/DeferredCore/Macros/
+!Development/DeferredCore/Macros/CommandGroup.range
+!Development/DeferredCore/Macros/Main.range
+!Development/DeferredCompiler/
+!Development/DeferredCompiler/Testing/
+!Development/DeferredCompiler/Testing/CommandLine/
+!Development/DeferredCompiler/Testing/CommandLine/Pass/
+!Development/DeferredCompiler/Testing/CommandLine/Pass/Routes.range
+!Projects/
+!Projects/RangeView/
+!Projects/RangeView/Macros/
+!Projects/RangeView/Macros/Constraints/
+!Projects/RangeView/Macros/Constraints/Bounded.range
 !Benchmarks/
 !Benchmarks/Speed/
 !Benchmarks/Speed/results/

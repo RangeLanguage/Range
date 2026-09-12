@@ -28,11 +28,10 @@ allowed to transform it.
 - **Typed metaprogramming.** Macros query program identities and relationships,
   receive only the environment they are allowed to observe, and return graph
   transformations rather than rewriting an untyped token stream.
-- **Native output.** The supported compiler is authored in Range and lowers
-  ProgramGraph directly to ARM64 machine code and Mach-O artifacts.
-- **A reproducible compiler authority.** A compiler checkpoint is accepted only
-  when the accepted compiler builds a candidate and that candidate rebuilds
-  the same source into byte-identical graphs, objects, and executables.
+- **Native output.** The C compiler is being built to lower the Range program
+  graph directly to ARM64 machine code and Mach-O artifacts.
+- **Core-defined semantics.** Core constructs and macros describe the graph
+  facts consumed by lowering instead of relying on compiler name checks.
 
 ## Identity : Value
 
@@ -86,44 +85,42 @@ untyped representation hidden from the rest of the language.
 The long-term aim is for frameworks, the compiler, editor intelligence, and
 program transformations to speak about the same graph as ordinary Range code.
 
-## Written in Range
+## Core in Range, compiler in C
 
-The supported compiler is authored in Range and owns its native backend. Compiler
-changes are proven with one two-build fixed-point check:
-
-```text
-accepted compiler + source -> candidate
-candidate + same source -> reproduction
-```
-
-Candidate and reproduction graphs, objects, and executables must match byte for byte.
-There is one rolling compiler authority under `Language/Bootstrap/`; Git
-history preserves older checkpoints without turning them into competing
-authorities.
+Range's language model lives in `Language/Core` as Range constructs and macros.
+The compiler is implemented in C under `Language/Compiler`. It parses Core,
+builds the queryable program graph, executes Core macros, and will encode target
+artifacts directly as bytes. LLVM and the former generated bootstrap chain are
+not part of the current architecture.
 
 ## Project status
 
-Range is early, self-hosting language infrastructure under active development.
-The compiler parses and reasons about real Range programs, executes typed
-macros, models ownership and graph relationships, and emits native code. The
-supported language surface remains deliberately bounded: focused fixtures
-prove individual capabilities rather than implying a complete language or
-standard library.
+Range is early language infrastructure under active development. The current C
+compiler has a lexer, parser, and bounded execution kernel. The first active
+compiler milestone is deriving integer representation from Core's `@integer`
+macro and `Int` construct.
 
-Repository branches may represent different compiler generations. The
-temporary bootstrap launcher remains available while the native CLI reaches
-its reproducibility gate:
+Build it with:
 
 ```sh
-Language/Bootstrap/Tools/range
+Language/Compiler/Tools/build-range-compiler /tmp/range-compiler
 ```
 
-Two shared compiler-maintenance proofs are:
+The focused compiler checks are:
 
 ```sh
-Testing/Tools/check-range-compiler
-Testing/Tools/check-range-compiler-self-host --expect-boundary
+Testing/Tools/check-compiler-parser
+Testing/Tools/check-compiler-evaluator
 ```
+
+Editor navigation can be checked with `Testing/Tools/check-range-editor-navigation`.
+The build discovers C sources directly from `Language/Compiler/Source`, and the
+Core check discovers every Range source under `Language/Core`.
+
+Earlier Core definitions are preserved in `Development/DeferredCore`. Old
+project declarations, compiler tests, runtime support, and benchmark programs
+are in `Development/DeferredCompiler`. Saved benchmark data remains available
+to the website and describes the former compiler.
 
 A passing focused proof establishes only its documented boundary. It is not a
 claim that every later compiler gate or intended language feature is complete.
@@ -132,14 +129,14 @@ claim that every later compiler gate or intended language feature is complete.
 
 - Read the [introduction to Range](https://rangelang.org/posts/intro-to-range).
 - Inspect the reproducible [native benchmarks](https://rangelang.org/benchmarks).
-- Explore the compiler, Core declarations, and focused fixtures in this
+- Explore the C compiler, Core declarations, and focused fixtures in this
   repository.
 - Use [GitHub Issues](https://github.com/RangeLang/Range/issues) for bugs,
   focused proposals, and questions about contributing.
 
 Range welcomes careful experiments, bug reports, documentation improvements,
 and focused compiler proofs. Because the language is evolving, verify a
-capability against the live Range-authored implementation and its supported
+capability against the live implementation and its supported
 fixtures before relying on design material or examples from another branch.
 
 ## License

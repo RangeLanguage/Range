@@ -16,8 +16,10 @@ WORKDIR /app
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY Website/ .
-COPY Language/Core/Macros/CommandGroup.range /Language/Core/Macros/CommandGroup.range
-COPY Language/Core/Macros/Main.range /Language/Core/Macros/Main.range
+COPY Development/DeferredCore/Macros/CommandGroup.range /Development/DeferredCore/Macros/CommandGroup.range
+COPY Development/DeferredCore/Macros/Main.range /Development/DeferredCore/Macros/Main.range
+COPY Development/DeferredCompiler/Testing/CommandLine/Pass/Routes.range /Development/DeferredCompiler/Testing/CommandLine/Pass/Routes.range
+COPY Projects/RangeView/Macros/Constraints/Bounded.range /Projects/RangeView/Macros/Constraints/Bounded.range
 COPY Benchmarks/Speed/results/latest.json /Benchmarks/Speed/results/latest.json
 
 RUN bun run build

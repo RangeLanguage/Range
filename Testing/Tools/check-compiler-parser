@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Proves that the C compiler front end retains the current Core surface.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-compiler-parser.XXXXXX")"
+trap 'rm -rf "$work_root"' EXIT
+
+fail() { echo "compiler parser: $*" >&2; exit 1; }
+compiler="$work_root/range-compiler"
+"$REPO_ROOT/Language/Compiler/Tools/build-range-compiler" "$compiler"
+
+sources=()
+while IFS= read -r -d '' source; do sources+=("$source"); done < <(
+    find "$REPO_ROOT/Language/Core" -type f -name '*.range' -print0 | LC_ALL=C sort -z
+)
+[[ ${#sources[@]} -gt 0 ]] || fail "Core contains no Range sources"
+census="$("$compiler" "${sources[@]}")"
+grep -q 'failures=0' <<<"$census" || fail "Core did not parse"
+
+(cd "$REPO_ROOT" && "$compiler" --tree Language/Core/DataTypes/Int.range) > "$work_root/int-tree"
+grep -q 'construct name=Int ' "$work_root/int-tree" || fail "Int construct is missing"
+grep -q 'member name=value ' "$work_root/int-tree" || fail "Int payload member is missing"
+grep -q 'attribute name=integer' "$work_root/int-tree" || fail "Int integer macro application is missing"
+
+probe="$work_root/malformed.range"
+printf 'construct Broken<let bits: > {}\n' > "$probe"
+if "$compiler" "$probe" > /dev/null 2> "$work_root/error"; then
+    fail "malformed generic was accepted"
+fi
+grep -Eq ':[0-9]+:[0-9]+:' "$work_root/error" || fail "diagnostic lacks a source location"
+
+echo "compiler parser: $census int-structure=pass malformed=pass"

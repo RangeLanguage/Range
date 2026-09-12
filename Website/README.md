@@ -28,9 +28,13 @@ Editorial copy follows [`STYLEGUIDE.md`](STYLEGUIDE.md).
 
 ## Benchmark data
 
-The repository benchmark runner at `../Benchmarks/Speed/run.py` writes the
-versioned website input to `public/benchmarks.json`. The website test suite
-validates that artifact against
+The design-knots article uses `src/lib/sources/Many.range`, an archival snapshot
+from `e0823c819^:Language/Core/Macros/Many.range`. The original was removed before
+the compiler cleanup. Other examples import deferred definitions and fixtures.
+
+The historical benchmark artifact is preserved at `public/benchmarks.json`.
+The former runner is deferred under `../Development/DeferredCompiler/Benchmarks/Speed`.
+The website test suite validates that artifact against
 `../Benchmarks/Speed/benchmark-results.schema.json`.
 
 ## Docker deployment
@@ -40,7 +44,7 @@ runs as the unprivileged `bun` user and exposes the SvelteKit server on port
 `3000`. Run Compose from this `Website/` directory inside the Range checkout:
 the build context includes the website and its canonical
 `Website/src/lib/sources/Codable.range` archival presentation source and
-`Language/Core/Macros/CommandGroup.range` live presentation source,
+`Development/DeferredCore/Macros/CommandGroup.range` archival presentation source,
 plus the current `Benchmarks/Speed/results/latest.json` measurement artifact.
 
 On the server:

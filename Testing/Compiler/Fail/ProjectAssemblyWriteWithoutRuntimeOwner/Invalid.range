@@ -1,2 +1,0 @@
-@write(bytes: "not runtime".bytes, destination: .standard)
-construct Invalid {}

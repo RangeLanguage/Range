@@ -8,10 +8,10 @@
  * the other spellings were approximating.
  */
 
-import manySource from "../../../Language/Core/Macros/Many.range?raw";
+import manySource from "./sources/Many.range?raw";
 import constraintSource from "../../../Projects/RangeView/Macros/Constraints/Bounded.range?raw";
-import commandGroupSource from "../../../Language/Core/Macros/CommandGroup.range?raw";
-import routesSource from "../../../Testing/CommandLine/Pass/Routes.range?raw";
+import commandGroupSource from "../../../Development/DeferredCore/Macros/CommandGroup.range?raw";
+import routesSource from "../../../Development/DeferredCompiler/Testing/CommandLine/Pass/Routes.range?raw";
 
 export type KnotShape = "pentagon" | "square" | "triangle" | "circle";
 
@@ -68,7 +68,7 @@ export const designKnots: DesignKnot[] = [
     shape: "triangle",
     sources: [
       {
-        path: "Language/Core/Macros/Many.range",
+        path: "Website/src/lib/sources/Many.range",
         source: manySource,
         focusLine: 1,
       },
@@ -88,12 +88,12 @@ export const designKnots: DesignKnot[] = [
     shape: "pentagon",
     sources: [
       {
-        path: "Language/Core/Macros/CommandGroup.range",
+        path: "Development/DeferredCore/Macros/CommandGroup.range",
         source: commandGroupSource,
         focusLine: 1,
       },
       {
-        path: "Testing/CommandLine/Pass/Routes.range",
+        path: "Development/DeferredCompiler/Testing/CommandLine/Pass/Routes.range",
         source: routesSource,
         focusLine: 1,
       },

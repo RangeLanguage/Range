@@ -29,7 +29,8 @@ IGNORED_DIRECTORIES = {
     ".build",
     ".git",
     ".range",
-    "Bootstrap",
+    "DeferredCore",
+    "DeferredCompiler",
     "node_modules",
     "target",
 }

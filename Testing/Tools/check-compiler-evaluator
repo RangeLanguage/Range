@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Proves the bounded C execution kernel in ordinary and sanitized builds.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-compiler-evaluator.XXXXXX")"
+trap 'rm -rf "$work_root"' EXIT
+fail() { echo "compiler evaluator: $*" >&2; exit 1; }
+
+# Deferred scalar declarations remain explicit inputs to these bounded fixtures.
+core=(Language/Core/DataTypes/Int.range Development/DeferredCore/DataTypes/Byte.range
+      Development/DeferredCore/DataTypes/Bool.range Development/DeferredCore/DataTypes/String.range)
+for mode in ordinary sanitized; do
+    passes=0
+    compiler="$work_root/$mode"
+    if [[ "$mode" == sanitized ]]; then
+        Language/Compiler/Tools/build-range-compiler "$compiler" --sanitize
+    else
+        Language/Compiler/Tools/build-range-compiler "$compiler"
+    fi
+
+    for source in Testing/Compiler/Pass/*.range; do
+        "$compiler" --run start "${core[@]}" "$source" > "$work_root/out" 2> "$work_root/error" \
+            || fail "$mode failed: $source"
+        grep -q 'result=42' "$work_root/out" || fail "$mode returned the wrong result: $source"
+        passes=$((passes + 1))
+    done
+
+    rejections=0
+    while IFS=$'\t' read -r name expected; do
+        source="Testing/Compiler/Fail/$name.range"
+        result=0
+        "$compiler" --run start "${core[@]}" "$source" > "$work_root/out" 2> "$work_root/error" || result=$?
+        [[ "$result" == 65 ]] || fail "$mode $name exited $result, expected 65"
+        grep -F "$expected" "$work_root/error" >/dev/null || fail "$mode $name failed for the wrong reason"
+        grep -Eq ':[0-9]+:[0-9]+:' "$work_root/error" || fail "$mode $name lacks a source location"
+        rejections=$((rejections + 1))
+    done < Testing/Compiler/Failures.tsv
+
+    files=(Testing/Compiler/Fail/*.range)
+    [[ "$rejections" == "${#files[@]}" ]] || fail "rejection fixture missing from inventory"
+    echo "compiler evaluator: $mode passes=$passes rejections=$rejections"
+done
