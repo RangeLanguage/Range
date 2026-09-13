@@ -10,28 +10,23 @@ const snapshotRoot = resolve(
 );
 const manifestPath = resolve(snapshotRoot, "manifest.json");
 
-const sources = [
-  "Projects/RangeCompilerB/Sources/CompilerB/Core/Macros/Many.range",
-  "RangeCompiler/Sources/Compiler/Driver/Main.range",
-  "RangeCompiler/Sources/Core/Macro/Codable.range",
-  "RangeCompiler/Sources/Core/Macro/CommandGroup.range",
-  "Testing/CommandLine/Pass/Routes.range",
-] as const;
-
-const sourceCommit = Bun.spawnSync({
-  cmd: ["git", "rev-parse", "HEAD"],
-  cwd: repositoryRoot,
-});
-
-if (sourceCommit.exitCode !== 0) {
-  throw new Error(sourceCommit.stderr.toString().trim());
-}
+const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+  sourceCommit: string;
+  files: { source: string }[];
+};
+const sourceCommit = manifest.sourceCommit;
 
 await mkdir(snapshotRoot, { recursive: true });
 
 const files = [];
-for (const source of sources) {
-  const content = await readFile(resolve(repositoryRoot, source));
+for (const { source } of manifest.files) {
+  // The compiler reset retired these paths; retain their recorded source revision.
+  const result = Bun.spawnSync({
+    cmd: ["git", "show", `${sourceCommit}:${source}`],
+    cwd: repositoryRoot,
+  });
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString().trim());
+  const content = result.stdout;
   const snapshot = basename(source);
   await writeFile(resolve(snapshotRoot, snapshot), content);
   files.push({
@@ -45,7 +40,7 @@ await writeFile(
   manifestPath,
   `${JSON.stringify(
     {
-      sourceCommit: sourceCommit.stdout.toString().trim(),
+      sourceCommit,
       files,
     },
     null,
@@ -53,4 +48,4 @@ await writeFile(
   )}\n`,
 );
 
-console.log(`Wrote ${files.length} source snapshots from ${sourceCommit.stdout.toString().trim()}.`);
+console.log(`Wrote ${files.length} source snapshots from ${sourceCommit}.`);

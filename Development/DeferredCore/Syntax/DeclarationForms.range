@@ -1,0 +1,84 @@
+@syntax {
+    $macros
+    function $identity<$generics>($inputs): $result {
+        $members
+    }
+}
+@syntax {
+    $macros
+    function $identity<$generics>($inputs): $result
+}
+@syntax {
+    $macros
+    function $identity($inputs): $result {
+        $members
+    }
+}
+@syntax {
+    $macros
+    function $identity($inputs): $result
+}
+construct Function {
+    @many
+    state macros: Macro
+    state identity: Identity
+
+    @many
+    state generics: Let
+    @many
+    state inputs: Let | Binding
+    state result: @syntax
+
+    @many
+    state members: @syntax
+}
+
+@syntax {
+    $macros
+    enum $identity {
+        $cases
+    }
+}
+construct Enum {
+    @many
+    state macros: Macro
+    state identity: Identity
+
+    @many
+    state cases: EnumCase
+}
+
+@syntax($macros case $identity)
+construct EnumCase {
+    @many
+    state macros: Macro
+    state identity: Identity
+}
+
+@syntax {
+    {
+        $members
+    }
+}
+construct Body {
+    @many
+    state members: @syntax
+
+    @many
+    derived declarations: @syntax
+
+    @many
+    derived applications: Application
+}
+
+@syntax {
+    extension $target {
+        $members
+    }
+}
+construct Extension {
+    state target: Application
+
+    @many
+    state members: @syntax
+}

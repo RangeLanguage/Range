@@ -1,0 +1,6 @@
+compilerMacroSnapshot
+compilerSourceFile\trole=core\tpath=Core/Storage.range
+macro literal(let syntax: Foreign<ASCII>): Construct -> Void {}
+compilerSourceFile\trole=core\tpath=Core/Integer.range
+@literal(syntax: .numeric)
+construct Int<signedness: Signedness, bits: Int> {}

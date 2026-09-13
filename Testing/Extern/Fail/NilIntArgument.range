@@ -1,6 +1,0 @@
-@extern
-function abs(value: Int): Int
-
-@main {
-    return abs(value: nil)
-}

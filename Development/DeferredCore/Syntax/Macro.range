@@ -1,0 +1,41 @@
+@syntax {
+    $macros
+    macro $identity<$generics>($inputs): $target -> $result {
+        $members
+    }
+}
+@syntax {
+    $macros
+    macro $identity<$generics>($inputs): $target {
+        $members
+    }
+}
+@syntax {
+    $macros
+    macro $identity($inputs): $target -> $result {
+        $members
+    }
+}
+@syntax {
+    $macros
+    macro $identity($inputs): $target {
+        $members
+    }
+}
+construct Macro {
+    @many
+    state macros: Macro
+    state identity: Identity
+
+    @many
+    state generics: Let
+    @many
+    state inputs: Let | Binding
+    state target: @syntax
+    state result: @syntax?
+
+    @many
+    state members: @syntax
+
+    binding environment: Environment
+}

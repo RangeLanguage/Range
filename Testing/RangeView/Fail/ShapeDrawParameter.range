@@ -1,6 +1,0 @@
-@shape
-construct ParameterizedDrawShape {
-    function draw(value: Int): ShapeRepresentation {
-        return ShapeRepresentation()
-    }
-}

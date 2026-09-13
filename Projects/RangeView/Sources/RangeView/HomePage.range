@@ -1,8 +1,0 @@
-@page
-construct HomePage {
-    derived body: [@component] {
-        Stack(.vertical, spacing: 10) {
-            Rectangle().fill(.cyan)
-        }
-    }
-}

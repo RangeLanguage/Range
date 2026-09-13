@@ -1,0 +1,22 @@
+// A generic-only application selects a type. The matched template/source span
+// retains whether ordinary parentheses are present, including an empty ().
+@syntax {
+    $target<$generics>
+}
+@syntax {
+    $target<$generics>($arguments)
+}
+@syntax {
+    $target(
+        $arguments
+    )
+}
+construct Application {
+    state target: Identity
+
+    @many
+    state generics: @syntax
+
+    @many
+    state arguments: @syntax
+}

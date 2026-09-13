@@ -1,0 +1,2 @@
+@extern
+function rangeGenericExtern<Value>(let value: Int): Int

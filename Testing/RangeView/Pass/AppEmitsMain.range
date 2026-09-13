@@ -1,6 +1,0 @@
-@app
-construct Website {
-    derived routes: Route {
-        Route("/") {}
-    }
-}

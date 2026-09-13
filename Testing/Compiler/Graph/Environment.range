@@ -1,0 +1,18 @@
+macro example(): Construct {
+    let target: #target
+    let ignored: "#environment is only text here"
+    if target.isTarget {
+        #environment {
+            // Keep the emitted recipe, including nested code.
+            let message: "hello"
+            if true {
+                @diagnostic(message)
+            }
+        }
+    }
+    #environment {}
+}
+
+macro plain(): Construct {
+    let ignored: 5
+}

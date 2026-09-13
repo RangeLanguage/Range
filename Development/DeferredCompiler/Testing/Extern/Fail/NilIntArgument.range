@@ -1,0 +1,6 @@
+@extern
+function abs(let value: Int): Int
+
+@main {
+    return abs(value: nil)
+}

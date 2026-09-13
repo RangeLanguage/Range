@@ -1,0 +1,47 @@
+construct String {
+    @many
+    state bytes: Byte
+
+    derived count: Int {
+        bytes.count
+    }
+
+    function append(let text: String): Int {
+        return bytes.append(contentsOf: text.bytes)
+    }
+
+    function byte(let index: Int): Byte {
+        return bytes.element(index: index)
+    }
+
+    function substring(let start: Int, let end: Int): String {
+        return String(bytes: bytes.slice(start: start, end: end))
+    }
+
+    function destroy(): Int {
+        return bytes.destroy()
+    }
+}
+
+function stringPrintableTable(): String {
+    return " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+}
+
+function stringAppendByte(let value: String, let byte: Int): Int {
+    if byte == 10 { return value.append(text: "\n") }
+    if byte == 9 { return value.append(text: "\t") }
+    if byte == 34 { return value.append(text: "\"") }
+    if byte == 92 { return value.append(text: "\\") }
+    let table: String(stringPrintableTable())
+    state index: Int(0)
+    while index < table.count {
+        if table.byte(index: index) == byte {
+            return value.append(text: table.substring(
+                start: index,
+                end: index + 1
+            ))
+        }
+        index: index + 1
+    }
+    return 0 - 1
+}

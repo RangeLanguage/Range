@@ -1,0 +1,17 @@
+compilerMacroSnapshot
+compilerSourceFile\trole=core\tpath=Core/Macro/Graph.range
+enum GraphRole {
+    case declaration
+    case application
+}
+macro syntax(): Declaration -> Void {}
+macro graph(
+    let role: GraphRole,
+    let additionalRole: GraphRole?
+): Construct -> Void {
+    #environment.graph.addNode(role: role, additionalRole: additionalRole)
+}
+
+compilerSourceFile\trole=project\tpath=Project/SyntaxFamily.range
+@graph(role: .declaration)
+construct SyntaxFamily {}

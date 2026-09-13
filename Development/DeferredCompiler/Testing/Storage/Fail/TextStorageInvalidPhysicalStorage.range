@@ -1,0 +1,17 @@
+compilerMacroSnapshot
+macro storage(let syntax: Foreign<ASCII>): Construct -> Void {}
+macro literal(let syntax: Foreign<ASCII>): Construct -> Void {}
+enum Signedness {
+    case signed
+    case unsigned
+}
+enum TextEncoding {
+    case utf8
+}
+construct Character {}
+construct Buffer<Element> {}
+@storage(syntax: .text(encoding: .utf8, element: Character, codeUnit: Int<.unsigned, 8>))
+@literal(syntax: .text)
+construct String {
+    state bytes: Buffer<Int<.signed, 8>>
+}

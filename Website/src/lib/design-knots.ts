@@ -8,7 +8,8 @@
  * the other spellings were approximating.
  */
 
-import manySource from "$lib/content/source-snapshots/Many.range?raw";
+import manySource from "./sources/Many.range?raw";
+import constraintSource from "./sources/Bounded.range?raw";
 import commandGroupSource from "$lib/content/source-snapshots/CommandGroup.range?raw";
 import routesSource from "$lib/content/source-snapshots/Routes.range?raw";
 
@@ -67,7 +68,7 @@ export const designKnots: DesignKnot[] = [
     shape: "triangle",
     sources: [
       {
-        path: "Projects/RangeCompilerB/Sources/CompilerB/Core/Macros/Many.range",
+        path: "Website/src/lib/sources/Many.range",
         source: manySource,
         focusLine: 1,
       },
@@ -87,12 +88,12 @@ export const designKnots: DesignKnot[] = [
     shape: "pentagon",
     sources: [
       {
-        path: "RangeCompiler/Sources/Core/Macro/CommandGroup.range",
+        path: "Development/DeferredCore/Macros/CommandGroup.range",
         source: commandGroupSource,
         focusLine: 1,
       },
       {
-        path: "Testing/CommandLine/Pass/Routes.range",
+        path: "Development/DeferredCompiler/Testing/CommandLine/Pass/Routes.range",
         source: routesSource,
         focusLine: 1,
       },
@@ -122,6 +123,22 @@ export const designKnots: DesignKnot[] = [
     ],
     question:
       "The empty macro exists so that declarations can carry a mark — but applying a macro already marks a declaration. Registration is not a mechanism the language needs; it is a thing macros already are. And the whole shape is copied per feature: @test / @testGroup in Test.range, @collectionModifier in Compiler B's Bool.range, the same five corners each time.",
+  },
+  {
+    id: "resulting-value",
+    title: "The calculation that remains",
+    shape: "circle",
+    sources: [
+      {
+        path: "Projects/RangeView/Macros/Constraints/Bounded.range",
+        source: constraintSource,
+        focusLine: 19,
+      },
+    ],
+    says: "the resulting value",
+    corners: [],
+    question:
+      "At the end of the day, this is what matters most in a calculation or transformation: the final expression states the value that comes out. The surrounding macro can query the graph, constrain the domain, and emit diagnostics; this line is the transformation.",
   },
 ];
 

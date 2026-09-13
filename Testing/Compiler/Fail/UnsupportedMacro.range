@@ -1,0 +1,2 @@
+macro transform(): Int { return 3 }
+function start(): Int { @transform return 42 }

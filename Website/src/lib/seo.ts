@@ -9,9 +9,9 @@ import {
 
 export const repositoryUrl = "https://github.com/RangeLang/Range";
 export const homepageTitle =
-  "Range Programming Language — Self-Hosting and Native";
+  "Range Programming Language — Core Semantics and Program Graphs";
 export const homepageDescription =
-  "Range is an open-source, self-hosting programming language with graph-aware macros and a native LLVM compiler.";
+  "Range is an open-source programming language built around a connected program graph, with Core semantics written in Range and a compiler written in C.";
 export const defaultSocialImage = `${siteOrigin}/og-homepage.png`;
 
 export type SeoPage = {

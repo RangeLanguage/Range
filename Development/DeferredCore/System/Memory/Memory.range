@@ -1,0 +1,33 @@
+// Proposed compiler primitives; declaration does not establish execution support.
+// These operations know memory and value layout, not Array or collection policy.
+// See MemoryMeaning.md for initialization, ownership and failure behavior.
+
+@builtin
+function allocateMemory(let bytes: Int, let alignment: Int): Address
+
+@builtin
+function releaseMemory(let address: Address): Void
+
+@builtin
+function valueStride<let Element: @type>(): Int
+
+@builtin
+function valueAlignment<let Element: @type>(): Int
+
+@builtin
+function initializeValue<let Element: @type>(
+    let address: Address,
+    let value: Element
+): Void
+
+@builtin
+function readValue<let Element: @type>(let address: Address): Element
+
+@builtin
+function moveValue<let Element: @type>(
+    let source: Address,
+    let destination: Address
+): Void
+
+@builtin
+function destroyValue<let Element: @type>(let address: Address): Void

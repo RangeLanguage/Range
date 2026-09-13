@@ -1,6 +1,0 @@
-compilerMacroSnapshot
-compilerSourceFile\trole=core\tpath=Core/LegacyOptionalDefault.range
-macro legacyOptionalDefault(_ value: String?(nil)): Construct -> Void {}
-
-compilerSourceFile\trole=project\tpath=Project/Value.range
-construct Value {}

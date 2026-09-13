@@ -1,0 +1,56 @@
+macro integer(): Construct {
+  let value: #target.members.filter(named: "value").first
+  let bits: #target.generics.filter(named: "bits").first
+  let signed: #target.generics.filter(named: "signed").first
+
+  if !value.isTarget {
+    @diagnostic("Construct must specify value")
+  }
+
+  if !bits.isTarget {
+    @diagnostic(
+      "Construct must specify bits"
+    )
+  }
+
+  if !signed.isTarget {
+    @diagnostic(
+      "Construct must specify signed"
+    )
+  }
+
+  // Graph queries now resolve the member declarations for each macro application.
+  // These validation statements and their numeric operations are still deferred.
+  // Selected generic arguments and the supplied value require the same checks.
+  // This declaration lookup does not yet compute those effective values.
+  if value.isTarget && bits.isTarget && signed.isTarget {
+    if bits.value <= 0 {
+      @diagnostic("Integer bits must be positive")
+    } else {
+      if !integerValueFits(value: value.value, bits: bits.value, signed: signed.value) {
+        @diagnostic("Integer value does not fit the declared bits and signedness")
+      }
+    }
+  }
+}
+
+// Bounded executable check for values representable by the recovery engine's
+// signed 64-bit Int. Literal values beyond that range still need representation.
+function integerValueFits(let value: Int, let bits: Int, let signed: Bool): Bool {
+  if bits <= 0 { return false }
+  state remaining: Int(value)
+  state available: Int(bits)
+  if signed {
+    available: available - 1
+    // -1 - value maps negatives to their required magnitude bits without
+    // negating the minimum signed integer or computing overflowing powers.
+    if remaining < 0 { remaining: -1 - remaining }
+  } else {
+    if remaining < 0 { return false }
+  }
+  while remaining > 0 && available > 0 {
+    remaining: remaining / 2
+    available: available - 1
+  }
+  return remaining == 0
+}

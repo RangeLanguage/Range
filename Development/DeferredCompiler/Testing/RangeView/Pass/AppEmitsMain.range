@@ -1,0 +1,6 @@
+@app
+construct Website {
+    derived body: @view {
+        Text(value: "Home")
+    }
+}

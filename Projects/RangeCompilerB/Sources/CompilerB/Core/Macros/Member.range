@@ -1,1 +1,0 @@
-macro member(): Let | State | Derived | Binding -> Void {}

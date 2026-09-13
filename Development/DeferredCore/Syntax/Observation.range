@@ -1,0 +1,68 @@
+function syntaxSignalPreviousIdentity(
+    let signal: SyntaxDeltaSignal
+): SyntaxNodeID {
+    if signal.revision == .previous { return signal.identity }
+    return signal.counterpart
+}
+
+function syntaxSignalCurrentIdentity(
+    let signal: SyntaxDeltaSignal
+): SyntaxNodeID {
+    if signal.revision == .current { return signal.identity }
+    return signal.counterpart
+}
+
+function compilerBRenderSyntaxObservationHalf(
+    let label: String,
+    let half: CompilerBDeclarationObservationHalf
+): String {
+    if half.present {
+        return "\t\(label)=present\t\(label)Name=\(half.name)\t\(label)Body=\(half.body.value)"
+    }
+    return "\t\(label)=absent"
+}
+
+function compilerBRenderSyntaxSignalObservation(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let signal: SyntaxDeltaSignal
+): String {
+    let before: CompilerBDeclarationObservationHalf(
+        compilerBDeclarationObservationInRevision(
+            revision: previous,
+            identity: syntaxSignalPreviousIdentity(signal: signal)
+        )
+    )
+    let after: CompilerBDeclarationObservationHalf(
+        compilerBDeclarationObservationInRevision(
+            revision: current,
+            identity: syntaxSignalCurrentIdentity(signal: signal)
+        )
+    )
+    state kind: String(after.kind)
+    if !after.present { kind: before.kind }
+    state output: String("observation\tchange=\(syntaxDeltaKindName(kind: signal.change))\tidentity=\(signal.identity.value)")
+    output.append(text: compilerBRenderSyntaxObservationHalf(label: "before", half: before))
+    output.append(text: compilerBRenderSyntaxObservationHalf(label: "after", half: after))
+    output.append(text: "\ttype=\(kind)\n")
+    return output
+}
+
+function compilerBRenderSyntaxDelta(
+    let previous: SyntaxRevision,
+    let current: SyntaxRevision,
+    let delta: SyntaxDelta
+): String {
+    state output: String("")
+    state row: Int(0)
+    while row < delta.changes.kinds.count {
+        output.append(text: compilerBRenderSyntaxSignalObservation(
+            previous: previous,
+            current: current,
+            signal: syntaxDeltaSignal(delta: delta, row: row)
+        ))
+        row: row + 1
+    }
+    output.append(text: "syntaxDeltaCount=\(delta.changes.kinds.count)\tadded=\(delta.addedCount)\tremoved=\(delta.removedCount)\tchanged=\(delta.changedCount)\tvalid=\(delta.valid)\tdiagnostic=\(delta.diagnostic)\n")
+    return output
+}

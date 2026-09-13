@@ -1,4 +1,0 @@
-construct UUID {
-    @many(count: 16)
-    let bytes: Byte
-}

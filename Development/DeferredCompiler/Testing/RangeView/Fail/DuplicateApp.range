@@ -1,0 +1,13 @@
+@app
+construct FirstWebsite {
+    derived body: @view {
+        Text(value: "First")
+    }
+}
+
+@app
+construct SecondWebsite {
+    derived body: @view {
+        Text(value: "Second")
+    }
+}

@@ -13,8 +13,8 @@ installation, local scripts, tests, and the production server runtime.
 ## Commands
 
 - `bun run dev` starts the local SvelteKit preview.
-- `bun run sync:sources` refreshes the Website-owned Range source snapshots and
-  records their source commit and SHA-256 hashes.
+- `bun run sync:sources` restores the Website-owned Range source snapshots from
+  their recorded Git revision and records their SHA-256 hashes.
 - `bun test` builds the site and verifies every route, the benchmark artifact,
   syntax highlighting, the Range scale, and the Svelte component boundary.
 - `bun run build` creates the standalone server in `build/`.
@@ -33,13 +33,18 @@ Editorial copy follows [`STYLEGUIDE.md`](STYLEGUIDE.md).
 `public/benchmarks.json` is the Website-owned benchmark artifact used by the
 production build. Range source excerpts are complete snapshots under
 `src/lib/content/source-snapshots/`; their source commit and SHA-256 hashes are
-recorded in that directory's `manifest.json`. Run `bun run sync:sources` from a
-clean Range development commit whenever those snapshots are deliberately
-refreshed, then review and commit the generated files with the Website.
+recorded in that directory's `manifest.json`. Run `bun run sync:sources` to
+reproduce them from that revision, even when the compiler has retired their
+original paths. Deliberate content refreshes must update the recorded source
+revision and paths, then review and commit the generated files with the Website.
 
 Production image builds therefore need only the `Website/` directory and the
 pinned Sveltely submodule. They do not read sibling compiler, fixture, or
 benchmark paths.
+
+Newer design examples also use archival presentation sources in `src/lib/sources/`:
+`Many.range` comes from `e0823c819^:Language/Core/Macros/Many.range`, and
+`Bounded.range` from `25577b2b:Projects/RangeView/Macros/Constraints/Bounded.range`.
 
 ## Docker deployment
 

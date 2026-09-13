@@ -1,9 +1,0 @@
-@extern
-function rangeExternStringIdentity(value: String): String
-
-@main {
-    if rangeExternStringIdentity(value: String("Range")) == String("Range") {
-        return 42
-    }
-    return 1
-}

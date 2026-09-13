@@ -1,0 +1,38 @@
+// The RHS retains syntax; resolving its target determines whether it declares
+// a requirement or supplies a value. See MemberMeaning.md for the agreed cases
+// and current parser gaps. These comments do not imply implemented semantics.
+@syntax($macros let $identity : $value)
+@storage(.immutable)
+construct Let {
+    @many
+    state macros: Macro
+    state identity: Identity
+    state value: @syntax
+}
+
+@syntax($macros state $identity : $value)
+@storage(.mutable)
+construct State {
+    @many
+    state macros: Macro
+    state identity: Identity
+    state value: @syntax
+}
+
+@syntax($macros derived $identity : $value)
+@storage(.derived)
+construct Derived {
+    @many
+    state macros: Macro
+    state identity: Identity
+    state value: @syntax
+}
+
+@syntax($macros binding $identity : $value)
+@storage(.binding)
+construct Binding {
+    @many
+    state macros: Macro
+    state identity: Identity
+    state value: @syntax
+}

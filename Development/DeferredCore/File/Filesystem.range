@@ -1,0 +1,11 @@
+enum FilesystemPath {
+    case current
+    case project
+    case installation
+    case userData
+    case temporary
+}
+
+macro filesystem(
+    let path: FilesystemPath(.current)
+): @member {}

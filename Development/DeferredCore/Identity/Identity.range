@@ -1,0 +1,4 @@
+construct Identity {
+    let id: UUID
+    let name: String
+}

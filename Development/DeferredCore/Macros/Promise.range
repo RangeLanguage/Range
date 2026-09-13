@@ -1,0 +1,15 @@
+construct Promise {
+    @many
+    let requests: State
+
+    let body: Body
+}
+
+macro promise(): Body -> Promise {
+    let requests: #environment.target.members.filter(all: State)
+
+    return Promise(
+        requests: requests,
+        body: #environment.target
+    )
+}

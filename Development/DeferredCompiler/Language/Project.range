@@ -1,0 +1,15 @@
+@commandLine
+@project
+@target(
+    platform: .macOS,
+    architecture: .arm64,
+    minimumMajorVersion: 27,
+    minimumMinorVersion: 0,
+    default: true
+)
+construct RangeLanguage {
+    let version: Version(0.1.0)
+    let author: "George"
+    @many
+    let remotes: Remote
+}

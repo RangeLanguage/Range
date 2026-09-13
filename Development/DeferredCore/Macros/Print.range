@@ -1,0 +1,13 @@
+macro print(let message: String): Void {
+    @write(bytes: message.bytes, destination: .standard)
+    @write(bytes: "\n".bytes, destination: .standard)
+}
+
+macro print(let nodes: @many): Void {
+
+  nodes.each { node in
+    @write(bytes: node.bytes, destination: .standard)
+    @write(bytes: "\n".bytes, destination: .standard)
+  }
+
+}

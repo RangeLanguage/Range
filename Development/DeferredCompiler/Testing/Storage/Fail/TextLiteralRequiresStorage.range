@@ -1,0 +1,15 @@
+compilerMacroSnapshot
+macro storage(let syntax: Foreign<ASCII>): Construct -> Void {}
+macro literal(let syntax: Foreign<ASCII>): Construct -> Void {}
+enum Signedness {
+    case signed
+    case unsigned
+}
+enum TextEncoding {
+    case utf8
+}
+construct Character {}
+construct Buffer<Element> {}
+@storage
+@literal(syntax: .text)
+construct String {}

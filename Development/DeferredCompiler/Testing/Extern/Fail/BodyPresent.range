@@ -1,0 +1,4 @@
+@extern
+function rangeExternBody(let value: Int): Int {
+    return value
+}

@@ -1,0 +1,5 @@
+macro illegal(): Construct {
+    let bad: #generics
+}
+@illegal
+construct Example {}

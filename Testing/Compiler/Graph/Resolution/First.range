@@ -1,0 +1,4 @@
+@probe
+construct First<let width: 8> {
+    let payload: 11
+}

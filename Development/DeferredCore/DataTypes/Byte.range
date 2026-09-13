@@ -1,0 +1,4 @@
+@integer
+construct Byte<let bits: 8, let signed: false> {
+    let value: 0
+}

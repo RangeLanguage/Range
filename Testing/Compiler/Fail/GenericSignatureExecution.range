@@ -1,0 +1,2 @@
+function sample(let value: Int<bits: 64>): Int { return 42 }
+function start(): Int { return sample(value: 3) }

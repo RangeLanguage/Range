@@ -80,7 +80,7 @@ their manifest were not changed by the GPU work.
 The canonical focused gate currently stops before candidate construction with:
 
 ```text
-Range compiler candidate check failed: runtime input 0 hash mismatch: RangeCompiler/Runtime/RangeCompilerHost.c
+Range compiler candidate check failed: runtime input 0 hash mismatch: Language/Runtime/RangeCompilerHost.c
 ```
 
 The runtime, bootstrap LLVM, executable, manifest, and unrelated compiler work
@@ -143,7 +143,7 @@ but they do not wrap SDL or wgpu calls.
 
 ### `@extern`
 
-Source: `RangeCompiler/Sources/Core/Macro/Extern.range`
+Source: `Language/Sources/Core/Macro/Extern.range`
 
 ```range
 construct ExternRegistration {
@@ -165,7 +165,7 @@ the authored symbol name verbatim.
 
 ### `@link`
 
-Source: `RangeCompiler/Sources/Core/Macro/Link.range`
+Source: `Language/Sources/Core/Macro/Link.range`
 
 Current closed native library identities are:
 
@@ -188,7 +188,7 @@ directory.
 
 ### `@opaque`
 
-Source: `RangeCompiler/Sources/Core/Macro/Opaque.range`
+Source: `Language/Sources/Core/Macro/Opaque.range`
 
 Each registered construct is a distinct Range nominal type with LLVM `ptr`
 representation at the external boundary. It has no emitted aggregate layout and
@@ -213,12 +213,12 @@ independent authority.
 
 Relevant files include:
 
-- `RangeCompiler/Sources/Compiler/Syntax/CompilerFrontend.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyCFG.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyMIR.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyTypes.range`
-- `RangeCompiler/Sources/Compiler/LLVM/CompilerBodyLLVM.range`
-- `RangeCompiler/Sources/Compiler/LLVM/CompilerLLVMPlan.range`
+- `Language/Sources/Compiler/Syntax/CompilerFrontend.range`
+- `Language/Sources/Compiler/Body/CompilerBodyCFG.range`
+- `Language/Sources/Compiler/Body/CompilerBodyMIR.range`
+- `Language/Sources/Compiler/Body/CompilerBodyTypes.range`
+- `Language/Sources/Compiler/LLVM/CompilerBodyLLVM.range`
+- `Language/Sources/Compiler/LLVM/CompilerLLVMPlan.range`
 
 ## Nullable Opaque Arguments
 
@@ -307,7 +307,7 @@ suite before acceptance.
 
 Framework source:
 
-- `RangeCompiler/Sources/Frameworks/RangeView/Native/Window.range`
+- `Language/Sources/Frameworks/RangeView/Native/Window.range`
 
 Entry fixture:
 
@@ -370,20 +370,16 @@ the example consume the real framework directory without copying it:
 ```sh
 RANGE_DEVELOPMENT_COMPILER=/path/to/RangeCompiler \
   scripts/range run Examples/RangeViewNativeTriangle \
-  --source RangeCompiler/Sources/Frameworks/RangeView/Drawing/Geometry.range \
-  --source RangeCompiler/Sources/Frameworks/RangeView/Drawing/Style.range \
-  --source RangeCompiler/Sources/Frameworks/RangeView/Macros/Iterable.range \
-  --source RangeCompiler/Sources/Frameworks/RangeView/Native
+  --source Language/Sources/Frameworks/RangeView/Drawing/Geometry.range \
+  --source Language/Sources/Frameworks/RangeView/Drawing/Style.range \
+  --source Language/Sources/Frameworks/RangeView/Native
 ```
 
-The source-first semantic surface keeps `Color` as an ordinary open OKLCH
-construct and composes named colors inside `@iterable construct RangePalette`.
-Enums remain reserved for genuine alternatives. `@iterable` registers the
-construct's stored values as its source-ordered traversal relationship, so the
-palette itself can map into a matrix without a generated `elements` field,
-`Array`, or parallel palette list. The SDL checkpoint
-continues to own final RGBA bytes until that general derived-collection path is
-compiler-backed.
+The source-first semantic surface keeps `Color` as ordinary open OKLCH data.
+Named colors are homogeneous enum values; no separate traversal-registration
+macro or parallel palette list participates in the framework source. The SDL
+checkpoint continues to own final RGBA bytes until general derived collection
+projection is compiler-backed.
 
 The example now also presents all twelve chromatic presets as a 6 by 2 matrix
 of filled rectangles beneath the Triangle. A native `NativeRectangle` adapter
@@ -548,7 +544,7 @@ Example environment:
 export WGPU_NATIVE_DIR=/path/to/wgpu-native-v29.0.1.1
 ```
 
-`RangeCompiler/Sources/Core/Package/LinkPlan.range` currently adds only
+`Language/Sources/Core/Package/LinkPlan.range` currently adds only
 `-lwgpu_native`; it does not yet mirror `WGPU_NATIVE_DIR` discovery. Keep the
 shell runner and Range-authored link planner behavior aligned in the next build
 tooling slice.
@@ -711,7 +707,7 @@ reason to reduce RangeView to SDL calls.
 The intended layering is:
 
 ```text
-RangeView components and geometry intent
+RangeView views and geometry intent
   -> Range-authored render planning
   -> typed GPU resources and commands
   -> wgpu-native Range declarations
@@ -722,7 +718,7 @@ Keep these distinctions:
 
 - SDL2 currently proves native windowing and a drawing lifecycle.
 - wgpu-native currently proves native GPU-library initialization.
-- neither currently lowers a RangeView component tree to GPU commands.
+- neither currently lowers a RangeView view tree to GPU commands.
 - the final framework should own layout, resource lifetimes, shader values,
   event handling, and scheduling in Range source.
 
@@ -772,23 +768,23 @@ top.
 
 ### Compiler and Core
 
-- `RangeCompiler/Sources/Core/Macro/Extern.range`
-- `RangeCompiler/Sources/Core/Macro/Link.range`
-- `RangeCompiler/Sources/Core/Macro/Opaque.range`
-- `RangeCompiler/Sources/Core/Package/LinkPlan.range`
-- `RangeCompiler/Sources/Compiler/Syntax/CompilerFrontend.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyCFG.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyMIR.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyModel.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyOwnership.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyParsing.range`
-- `RangeCompiler/Sources/Compiler/Body/CompilerBodyTypes.range`
-- `RangeCompiler/Sources/Compiler/LLVM/CompilerBodyLLVM.range`
-- `RangeCompiler/Sources/Compiler/LLVM/CompilerLLVMPlan.range`
+- `Language/Sources/Core/Macro/Extern.range`
+- `Language/Sources/Core/Macro/Link.range`
+- `Language/Sources/Core/Macro/Opaque.range`
+- `Language/Sources/Core/Package/LinkPlan.range`
+- `Language/Sources/Compiler/Syntax/CompilerFrontend.range`
+- `Language/Sources/Compiler/Body/CompilerBodyCFG.range`
+- `Language/Sources/Compiler/Body/CompilerBodyMIR.range`
+- `Language/Sources/Compiler/Body/CompilerBodyModel.range`
+- `Language/Sources/Compiler/Body/CompilerBodyOwnership.range`
+- `Language/Sources/Compiler/Body/CompilerBodyParsing.range`
+- `Language/Sources/Compiler/Body/CompilerBodyTypes.range`
+- `Language/Sources/Compiler/LLVM/CompilerBodyLLVM.range`
+- `Language/Sources/Compiler/LLVM/CompilerLLVMPlan.range`
 
 ### RangeView and Fixtures
 
-- `RangeCompiler/Sources/Frameworks/RangeView/Native/Window.range`
+- `Language/Sources/Frameworks/RangeView/Native/Window.range`
 - `Testing/Extern/Pass/NullableOpaqueArgument.range`
 - `Testing/Extern/Pass/InferredOpaqueCall.range`
 - `Testing/Extern/Pass/InferredOpaqueCallHost.c`
@@ -818,3 +814,59 @@ top.
 - Do not call wgpu instance creation GPU drawing.
 - Add each new ABI feature with a focused pass fixture, exact LLVM assertions,
   native execution, and a neighboring rejection control.
+
+## 2026-08-22 Experimental RangeView Window Supersession
+
+The SDL2 Window/WindowRenderer checkpoint above remains historical proof of
+typed foreign calls, but it is no longer the current RangeView source model.
+On the local `experimental` branch, `Projects/RangeView/Application/Window.range`
+defines one concrete `@view` Window with a Range String title and an `@app`
+binding. `@app` emits that Window Application directly in `@main`. The opaque
+native-C-string, Window, and renderer identities plus the SDL lifecycle fixture
+were removed; direct platform lowering of the Window graph remains pending.
+
+## 2026-08-23 Experimental RangeView Color Supersession
+
+The SDL-era `Projects/RangeView/Native/Color.c` conversion checkpoint above is
+historical proof, not current RangeView ownership. `RGBA`, `OKLCH`, and composed
+`Color` enum cases are ordinary Range declarations and applications. Their
+application fields are the emitted color representation; the selected renderer
+may translate those fields at its final platform boundary but does not call a
+RangeView-owned C semantic conversion layer. Compiler B's focused GPUI material
+fixture still uses packed integer colors and remains transitional until it
+queries and emits the canonical `@color` graph applications.
+
+## 2026-08-23 RangeView Scalar Constraint Direction
+
+RangeView's canonical RGBA and OKLCH example no longer encodes semantic domains
+through generic scalar specialization. Both use plain Int or Float storage.
+`@bounded`, `@lowerBounded`, and `@cyclic` applications on individual members
+carry the domain facts. Their Range bodies are now `@member -> Value`
+transformations over `#environment.target.Application.value`: bounded forms use
+ordinary conditionals and `@diagnostic`, and cyclic uses Euclidean modulo before
+producing its value. Compiler B lexes and retains the parameters, Application
+query locals, conditionals, and diagnostic executions. It does not yet execute
+the implicit final macro expression, so emitted-program enforcement remains the
+next general compiler proof; other domain-bearing generic source should migrate
+only after that proof is complete.
+
+## 2026-08-23 Direct Metal Supersession
+
+The experimental Rust/GPUI adapter is no longer an active RangeView boundary.
+An intermediate Compiler B `RangeViewMetal` backend proved that emitted LLVM
+could link directly to AppKit, QuartzCore, Metal, and `libobjc`, create a real
+device and command queue, present a `CAMetalLayer`, and retain a native window.
+That backend was then removed because it selected RangeView-specific graph
+facts, concatenated fixture sources, and manufactured a platform entrypoint.
+It is historical evidence about the target ABI, not the accepted architecture.
+
+The active architecture keeps Metal as an operating-system boundary described
+by ordinary Range `@extern` declarations. Compiler B discovers project files as
+separate, deterministically ordered source identities, composes their ordinary
+declaration/macro graph, retains `@extern(symbol:)` and `@framework(name:)`
+arguments, and lowers the reachable emitted-main Function with fixed foreign
+call signatures. `scripts/range run Projects/RangeView` now builds B with the
+accepted compiler, emits the RangeView project LLVM, derives its Apple
+framework link plan, and launches the resulting application without a renderer
+identity, framework engine, C adapter, Rust crate, or RangeView-named compiler
+entry. Lowering the authored Window and view tree is the next rendering slice.

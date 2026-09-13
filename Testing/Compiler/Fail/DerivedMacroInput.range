@@ -1,0 +1,2 @@
+macro sample(derived value: Int): Construct {}
+function start(): Int { return 42 }

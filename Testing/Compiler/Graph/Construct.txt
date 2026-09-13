@@ -1,0 +1,9 @@
+@type {
+    name: Construct
+    fields: {
+        @many macros?
+        name
+        @many generics?
+        @many members?
+    }
+}

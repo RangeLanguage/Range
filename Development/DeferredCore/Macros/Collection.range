@@ -1,0 +1,40 @@
+macro collection(
+    let ordering: Ordering(.ordered),
+    let capacity: Int?
+): Construct {
+    let element: #environment.target.generics.filter(named: "Element").first
+    let count: #environment.target.members.filter(named: "count").first
+
+    if !element.isTarget {
+        @diagnostic("Collection construct must declare generic Element")
+    }
+
+    if !count.isTarget {
+        @diagnostic("Collection construct must declare count")
+    }
+
+    // element refers to the generic declaration, not its concrete supplied type.
+    // Pending: validate its @type constraint and resolve each specialization.
+    // This uses the same draft declaration-query convention as integer.
+    let modifiers: #environment.filter(for: @collectionModifier)
+
+    // Pending: validate count's integer type and nonnegative live value.
+    // collection supplies element storage for each target instance using Element.
+    // The target declares its live count; no Buffer member is required.
+    // Storage primitives are declared in System/Memory; execution is still pending.
+    // This extension is the intended shape; Core's Extension target model
+    // still needs to support the construct identity directly.
+    #environment {
+        extension #environment.target.identity {
+            state storage: emptyAddress()
+            state capacity: 0
+
+            #modifiers
+        }
+    }
+}
+
+enum Ordering {
+    case ordered
+    case unordered
+}

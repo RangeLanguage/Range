@@ -1,0 +1,40 @@
+enum TargetArchitecture {
+    case arm64
+    case riscv64
+}
+
+enum TargetPlatform {
+    case macOS
+    case linux
+    case bare
+}
+
+construct CompilationTarget {
+    let architecture: TargetArchitecture
+    let platform: TargetPlatform
+    let minimumMajorVersion: Int
+    let minimumMinorVersion: Int
+}
+
+construct ProjectTarget {
+    let target: CompilationTarget
+    let default: Bool
+}
+
+macro target(
+    let platform: TargetPlatform,
+    let architecture: TargetArchitecture,
+    let minimumMajorVersion: Int(0),
+    let minimumMinorVersion: Int(0),
+    let default: Bool(false)
+): Construct -> ProjectTarget {
+    return ProjectTarget(
+        target: CompilationTarget(
+            architecture: architecture,
+            platform: platform,
+            minimumMajorVersion: minimumMajorVersion,
+            minimumMinorVersion: minimumMinorVersion
+        ),
+        default: default
+    )
+}

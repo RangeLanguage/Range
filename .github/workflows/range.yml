@@ -10,22 +10,21 @@ on:
 
 jobs:
   check:
-    name: Native compiler proof
+    name: C compiler foundation
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate native scripts
-        run: bash -n scripts/range scripts/range-native scripts/check-range-compiler-candidate scripts/verify-range-compiler
+      - name: Validate compiler and testing tools
+        run: |
+          for tool in $(find Language/Compiler/Tools Testing/Tools -maxdepth 1 -type f); do
+            if head -1 "$tool" | grep -qE '^#!.*(bash|sh)'; then
+              bash -n "$tool"
+            fi
+          done
 
-      - name: Verify accepted bootstrap
-        run: scripts/range check-compiler-integrity
-
-      - name: Verify candidate reproduction
-        run: scripts/range check-compiler-candidate
-
-      - name: Verify graph Source revision
-        run: scripts/range check-compiler-graph-revision
-
-      - name: Verify Shape Source revision
-        run: scripts/range check-shape
+      - name: Verify compiler parser and execution kernel
+        run: |
+          Testing/Tools/check-compiler-parser
+          Testing/Tools/check-compiler-graph
+          Testing/Tools/check-compiler-evaluator

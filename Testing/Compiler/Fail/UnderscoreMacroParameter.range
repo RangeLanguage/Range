@@ -1,0 +1,2 @@
+macro sample(let _ value: Int): Construct {}
+function start(): Int { return 42 }

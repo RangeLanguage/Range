@@ -1,0 +1,118 @@
+compilerMacroSyntaxSnapshot
+
+@builtin
+construct Array<Element> {}
+
+construct TypeReference {}
+construct Expression {}
+
+construct Identity {
+    let name: String
+    let id: String
+    let parent: Identity?
+    let source: @syntax?
+}
+
+construct Macro {
+    construct Declaration {}
+}
+
+construct MacroApplication {
+    let identity: Identity
+    let target: Identity
+    let genericArguments: Array<TypeReference>
+    let argumentClause: String
+    let arguments: Array<Expression>
+    let declaration: Macro.Declaration?
+    let packageVisibility: String
+    let valueType: TypeReference
+    let value: RelationshipRegistration
+}
+
+construct Member {
+    let macros: Array<MacroApplication>
+}
+
+construct Construct {}
+macro syntax(): Construct -> Void {}
+
+enum DelimiterPair {
+    case parentheses
+    case braces
+    case brackets
+    case angles
+}
+
+enum RelationshipBound {
+    case finite(value: Int)
+    case unbounded
+}
+
+construct RelationshipMultiplicity {
+    let minimum: Int
+    let maximum: RelationshipBound
+}
+
+enum RelationshipOrdering {
+    case unordered
+    case ordered
+}
+
+enum RelationshipSeparator {
+    case none
+}
+
+enum RelationshipEnclosure {
+    case none
+    case delimited(pair: DelimiterPair)
+}
+
+enum RelationshipAdmission {
+    case any
+    case block
+}
+
+construct RelationshipRegistration {
+    let multiplicity: RelationshipMultiplicity
+    let ordering: RelationshipOrdering
+    let separator: RelationshipSeparator
+    let enclosure: RelationshipEnclosure
+    let admission: RelationshipAdmission
+}
+
+construct BlockRegistration {}
+
+macro contents(let shape: DelimiterPair): Member -> RelationshipRegistration {
+    return RelationshipRegistration(
+        multiplicity: RelationshipMultiplicity(
+            minimum: 0,
+            maximum: .unbounded
+        ),
+        ordering: .ordered,
+        separator: .none,
+        enclosure: .delimited(pair: shape),
+        admission: .block
+    )
+}
+
+macro block(): Member -> BlockRegistration {
+    return BlockRegistration()
+}
+
+@syntax
+construct ParenthesizedBlock {
+    @contents(shape: .parentheses)
+    @block
+    let contents: Array<@syntax>
+}
+
+@syntax
+construct Block {
+    @contents(shape: .braces)
+    @block
+    let contents: Array<@syntax>
+}
+
+function proof(): Int {
+    return 1
+}

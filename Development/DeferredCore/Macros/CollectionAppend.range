@@ -1,0 +1,15 @@
+@collectionModifier
+macro append(let contentsOf: @many): @many -> Int {
+    state destination: #environment.target
+    state index: Int(0)
+    state status: Int(0)
+
+    while index < contentsOf.count && status == 0 {
+        status: destination.append(
+            element: contentsOf.element(index: index)
+        )
+        index: index + 1
+    }
+
+    status
+}

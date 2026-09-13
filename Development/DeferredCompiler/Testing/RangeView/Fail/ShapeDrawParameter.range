@@ -1,0 +1,6 @@
+@shape
+construct ParameterizedDrawShape {
+    function draw(let value: Int): ShapeRepresentation {
+        return ShapeRepresentation()
+    }
+}

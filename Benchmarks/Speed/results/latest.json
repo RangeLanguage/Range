@@ -300,7 +300,7 @@
                   "language": "Range",
                   "syntax": "range",
                   "filename": "Playground.range",
-                  "source": "@main {\n    let n: Int(40000000)\n    state i: Int(0)\n    state text: String(\"\")\n    state acc: Int(0)\n    while i < n {\n        text: \"\\(text)a\"\n        acc: (acc + i + 1) % 1000003\n        i: i + 1\n    }\n    return ((acc + stringLength(value: text)) % 1000003) % 251\n}\n"
+                  "source": "@main {\n    let n: Int(40000000)\n    state i: Int(0)\n    state text: String(\"\")\n    state acc: Int(0)\n    while i < n {\n        text: \"\\(text)a\"\n        acc: (acc + i + 1) % 1000003\n        i: i + 1\n    }\n    return ((acc + text.count) % 1000003) % 251\n}\n"
                 }
               ],
               "results": []

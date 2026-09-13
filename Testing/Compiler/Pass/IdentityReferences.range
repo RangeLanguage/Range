@@ -1,0 +1,32 @@
+construct User {
+    let score: Int(42)
+}
+construct RequiredUser {
+    let user: User
+}
+construct Pair {
+    let original: User()
+    let copy: original
+}
+function start(): Int {
+    let original: User()
+    let user: original
+    let required: RequiredUser(user: user)
+    if required.user.score != 42 { return 1 }
+    let pair: Pair()
+    if pair.copy.score != 42 { return 5 }
+    state number: Int(42)
+    let snapshot: number
+    number: 9
+    if snapshot != 42 { return 2 }
+    // A lexical value with the same spelling as a construct wins resolution.
+    let User: Int(42)
+    let selected: User
+    if selected != 42 { return 3 }
+    if true {
+        let number: Int(7)
+        let nested: number
+        if nested != 7 { return 4 }
+    }
+    return snapshot
+}

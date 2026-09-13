@@ -1,0 +1,4 @@
+construct UUID {
+    @many(fixedCount: 16)
+    let bytes: Byte
+}

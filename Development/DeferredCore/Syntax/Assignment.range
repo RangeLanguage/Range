@@ -1,0 +1,12 @@
+// The destination capture names an existing object through its identity.
+// Resolve that identity in scope, then bind to the State or Binding it names.
+// Do not materialize a new declaration for this capture.
+// A Binding destination must ultimately refer to storage that permits mutation.
+// These matching/resolution rules still need implementation in syntax.
+@syntax($destination: $source)
+construct Assignment {
+    binding destination: State | Binding
+
+    // Provisional: the value-producing constraint is our next design decision.
+    let source: @syntax
+}

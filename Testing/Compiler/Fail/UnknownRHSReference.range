@@ -1,0 +1,4 @@
+function start(): Int {
+    let user: missing
+    return 42
+}

@@ -1,2 +1,0 @@
-@extern
-function rangeGenericExtern<Value>(value: Int): Int

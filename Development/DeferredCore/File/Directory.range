@@ -1,0 +1,15 @@
+construct Directory {
+    let url: URL
+
+    derived paths: String {
+        fileManagerListFiles(path: url.string())
+    }
+
+    function files(): String {
+        return paths
+    }
+
+    function subpaths(): String {
+        return paths
+    }
+}

@@ -1,0 +1,68 @@
+compilerSourceFile\trole=core\tpath=Core/DataSystem/Array/Array.range
+@builtin
+construct Array<Element> {}
+
+compilerSourceFile\trole=core\tpath=Core/Macro/CodableCompositeAtomicRollback.range
+macro member(): Declaration | Member -> Void {}
+macro syntax(): Declaration -> Void {}
+
+construct Identity {
+    let name: String
+}
+
+construct Construct {
+    construct Declaration {
+        let identity: Identity
+        let members: Array<@member>
+    }
+}
+
+@syntax
+construct Let {
+    let identity: Identity
+}
+
+macro validEncodeBody(let properties: Array<Let>) -> Int {
+    if properties.count == 2 {
+        #environment {
+            let encodedProperties: Int(2)
+        }
+    }
+    return properties.count
+}
+
+macro invalidDecodeBody(let properties: Array<Let>) -> Int {
+    if properties.count == 2 {
+        #environment {
+            break
+        }
+    }
+    return properties.count
+}
+
+macro codable(): Construct {
+    let properties: Array<Let>(
+        #environment.target.Declaration.members.filter(all: Let)
+    )
+
+    #environment {
+        extension #environment.target.Declaration.identifier {
+            function encode(let encoder: Encoder): Int {
+                @validEncodeBody(properties: #properties)
+                return 0
+            }
+
+            function decode(let decoder: Decoder): Int {
+                @invalidDecodeBody(properties: #properties)
+                return 0
+            }
+        }
+    }
+}
+
+compilerSourceFile\trole=project\tpath=Project/Value.range
+@codable
+construct Value {
+    let included: Int
+    let enabled: Bool
+}

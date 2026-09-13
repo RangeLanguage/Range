@@ -1,0 +1,4 @@
+@integer
+construct Int<let bits: 64, let signed: true> {
+    let value: 0
+}

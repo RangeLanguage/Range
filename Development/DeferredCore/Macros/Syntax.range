@@ -1,0 +1,1 @@
+macro syntax(let template: String): Construct {}

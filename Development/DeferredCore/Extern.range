@@ -1,0 +1,2 @@
+macro extern(let symbol: String("")): Function {}
+macro framework(let name: String): Function {}

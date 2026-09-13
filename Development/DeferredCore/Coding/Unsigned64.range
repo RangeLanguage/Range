@@ -1,0 +1,99 @@
+construct Unsigned64 {
+    let low: Int
+    let high: Int
+}
+
+function unsigned32(let high: Int, let low: Int): Int {
+    return high * 65536 + low
+}
+
+function unsigned32Limit(): Int {
+    return unsigned32(high: 65535, low: 65535) + 1
+}
+
+function unsigned64(let low: Int, let high: Int): Unsigned64 {
+    return Unsigned64(low: low, high: high)
+}
+
+function unsigned64FromInt(let value: Int): Unsigned64 {
+    if value < 0 { return Unsigned64(low: 0, high: 0) }
+    return Unsigned64(
+        low: value % unsigned32Limit(),
+        high: value / unsigned32Limit()
+    )
+}
+
+function unsigned64IsValid(let value: Unsigned64): Bool {
+    return value.low >= 0 && value.low < unsigned32Limit()
+        && value.high >= 0 && value.high < unsigned32Limit()
+}
+
+function unsigned64Adding(let left: Unsigned64, let right: Unsigned64): Unsigned64 {
+    if !unsigned64IsValid(value: left) || !unsigned64IsValid(value: right) {
+        return Unsigned64(low: 0 - 1, high: 0 - 1)
+    }
+    let lowSum: Int(left.low + right.low)
+    state carry: Int(0)
+    state low: Int(lowSum)
+    if lowSum >= unsigned32Limit() {
+        low: lowSum - unsigned32Limit()
+        carry: 1
+    }
+    let high: Int(left.high + right.high + carry)
+    if high >= unsigned32Limit() {
+        return Unsigned64(low: 0 - 1, high: 0 - 1)
+    }
+    return Unsigned64(
+        low: low,
+        high: high
+    )
+}
+
+function unsigned64Subtracting(
+    let left: Unsigned64,
+    let right: Unsigned64
+): Unsigned64 {
+    if !unsigned64IsValid(value: left) || !unsigned64IsValid(value: right)
+        || left.high < right.high
+        || (left.high == right.high && left.low < right.low) {
+        return Unsigned64(low: 0 - 1, high: 0 - 1)
+    }
+    state low: Int(left.low - right.low)
+    state borrow: Int(0)
+    if low < 0 {
+        low: low + unsigned32Limit()
+        borrow: 1
+    }
+    return Unsigned64(low: low, high: left.high - right.high - borrow)
+}
+
+function unsigned64AddingInt(let value: Unsigned64, let addend: Int): Unsigned64 {
+    if addend >= 0 {
+        return unsigned64Adding(
+            left: value,
+            right: unsigned64FromInt(value: addend)
+        )
+    }
+    return unsigned64Subtracting(
+        left: value,
+        right: unsigned64FromInt(value: 0 - addend)
+    )
+}
+
+function unsigned64DifferenceInt(let left: Unsigned64, let right: Unsigned64): Int {
+    if !unsigned64IsValid(value: left) || !unsigned64IsValid(value: right) {
+        return 0 - 1
+    }
+    return (left.high - right.high) * unsigned32Limit()
+        + left.low - right.low
+}
+
+function unsigned64Aligned(let value: Unsigned64, let alignment: Int): Unsigned64 {
+    if alignment <= 1 { return value }
+    let remainder: Int(value.low % alignment)
+    if remainder == 0 { return value }
+    return unsigned64Adding(
+        left: value,
+        right: unsigned64FromInt(value: alignment - remainder)
+    )
+}

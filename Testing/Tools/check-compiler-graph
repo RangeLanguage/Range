@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Resolves macro contexts without destroying definitions or running expansions.
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/range-compiler-graph.XXXXXX")"
+trap 'rm -rf "$work_root"' EXIT
+fail() { echo "compiler graph: $*" >&2; exit 1; }
+for mode in ordinary sanitized; do
+    compiler="$work_root/$mode"
+    options=()
+    if [[ "$mode" == sanitized ]]; then options=(--sanitize); fi
+    Language/Compiler/Tools/build-range-compiler "$compiler" ${options[@]+"${options[@]}"}
+    output="$work_root/$mode-graphs"
+    "$compiler" --emit-graph "$output" Testing/Compiler/Graph/Resolution > "$work_root/log"
+    for target in First Second; do
+        file="$output/$target.txt"
+        grep -Fq 'macroName: probe' "$file" || fail "$mode macro identity lost"
+        grep -Fq "targetName: $target" "$file" || fail "$mode target context leaked"
+        grep -Fq 'expansions: {' "$file" || fail "$mode environment field did not resolve to blocks"
+        grep -Fq '#environment {' "$file" || fail "$mode expansion code missing"
+        grep -Fq 'let selected: #target.members.filter(named: "payload").first' "$file" || fail "$mode member definition erased"
+        grep -Fq 'missing: none' "$file" || fail "$mode missing member was fabricated"
+    done
+    grep -Fq 'evaluated: @integer(11)' "$output/First.txt" || fail "$mode first payload differs"
+    grep -Fq 'evaluated: @integer(22)' "$output/Second.txt" || fail "$mode second payload differs"
+    grep -Fq 'width: @integer(8)' "$output/First.txt" || fail "$mode first generic differs"
+    grep -Fq 'width: @integer(16)' "$output/Second.txt" || fail "$mode second generic differs"
+    grep -Fq 'original: let selected:' "$output/First.txt" || fail "$mode reflection returned the evaluated value instead of the member"
+    grep -Fq '@diagnostic("This block must remain deferred")' "$output/Probe.txt" || fail "$mode expansion body lost"
+    for fixture in Unknown Cycle; do
+        status=0
+        "$compiler" --emit-graph "$work_root/$mode-$fixture" "Testing/Compiler/Graph/ResolutionFail/$fixture.range" > "$work_root/log" 2> "$work_root/error" || status=$?
+        [[ "$status" == 65 ]] || fail "$mode $fixture exited $status"
+        grep -Eq ':[0-9]+:[0-9]+:' "$work_root/error" || fail "$mode $fixture lacks source location"
+        [[ ! -e "$work_root/$mode-$fixture" ]] || fail "$mode $fixture emitted partial results"
+        if [[ "$fixture" == Cycle ]]; then
+            grep -Fq 'cyclic graph member' "$work_root/error" || fail "$mode cycle failed for wrong reason"
+        else
+            grep -Fq "field 'unknown' is not declared by @type Macro" "$work_root/error" || fail "$mode unknown field failed for wrong reason"
+        fi
+    done
+    # The same binary reads edited templates; no C rebuild establishes these rules.
+    types="$work_root/$mode-types"
+    mkdir -p "$types"
+    cp Language/Compiler/Types/*.range "$types/"
+    rules=Testing/Compiler/Graph/TypeRules
+    cp "$rules/Type-Bonus.range" "$types/Macro.range"
+    "$compiler" --graph-types "$types" --emit-graph "$work_root/$mode-bonus" "$rules/Bonus.range" > "$work_root/log"
+    grep -Fq 'extra: none' "$work_root/$mode-bonus/Bonus.txt" || fail "$mode optional field did not become available"
+    grep -Fq 'bonus?' "$work_root/$mode-bonus/Macro.txt" || fail "$mode emitted template ignored its source"
+    for rule in Required Single Removed Duplicate Illegal; do
+        case "$rule" in
+            Required) fixture="$rules/Empty.range"; expected="@type Macro requires field 'members'" ;;
+            Single) fixture=Language/Core; expected="@type Macro field 'members' allows at most one value" ;;
+            Removed) fixture=Language/Core; expected="field 'members' is not declared by @type Macro" ;;
+            Duplicate) fixture=Language/Core; expected="duplicate @type field 'name'" ;;
+            Illegal) fixture="$rules/Illegal.range"; expected="field 'generics' is not declared by @type Macro" ;;
+        esac
+        if [[ "$rule" == Illegal ]]; then cp Language/Compiler/Types/Macro.range "$types/Macro.range"
+        else cp "$rules/Type-$rule.range" "$types/Macro.range"; fi
+        status=0
+        "$compiler" --graph-types "$types" --emit-graph "$work_root/$mode-$rule" "$fixture" > "$work_root/log" 2> "$work_root/error" || status=$?
+        [[ "$status" == 65 ]] || fail "$mode $rule rule exited $status"
+        grep -Fq "$expected" "$work_root/error" || fail "$mode $rule failed for wrong reason"
+        [[ ! -e "$work_root/$mode-$rule" ]] || fail "$mode $rule emitted invalid graph"
+    done
+    echo "compiler graph: $mode contexts=2 reflection=pass deferred=pass templates=pass rejections=7"
+done

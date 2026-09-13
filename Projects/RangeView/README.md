@@ -2,42 +2,52 @@
 
 This directory is the standalone RangeView project. It contains the framework
 sources plus the application entrypoint and example shapes under
-`Sources/RangeView/`. Compiler B is a separate sibling project at
-`Projects/RangeCompilerB/`.
+`Sources/RangeView/`. The compiler is owned by the repository-level
+`Language/Compiler/` directory.
 
 The old GPUCanvas and native-triangle demos are not project boundaries anymore.
 
 Run the complete RangeView source set with:
 
 ```sh
-scripts/range run Projects/RangeView
+range run Projects/RangeView
+# Later runs may use the registered construct identity:
+range run RangeViewProject
 ```
 
 ---
 
 # Framework reference
 
-RangeView turns Range values into web files. It does not define a virtual DOM
-or require a browser runtime.
+RangeView turns Range values into application views. Platform backends can
+present those views natively or emit web artifacts; the application model is
+not organized around URLs or a virtual DOM.
 
-- `Macros/` owns every RangeView macro, grouped into concern-specific files.
-- `Macros/Core.range` owns the foundational `@app`, `@component`, and `@page`
-  macros.
+- `Macros/` owns every RangeView macro, one independently named concern per
+  file. `App.range` owns `@app`; `View.range` owns `@view`.
 - `Drawing/` owns backend-neutral geometry, shapes, and styles.
-- `@component` marks a reusable renderer.
-- `@page` marks a declaration that can be attached to a route.
-- `@app` marks the site root that owns page discovery and emission.
+- `Application/` owns application-level views such as `Window` and
+  `NavigationStack`.
+- `Views/` owns reusable general views such as `Stack`.
+- `Sources/RangeView/` keeps the example app and every independent example view
+  in its own file.
+- `@view` is the single identity for every presentable value.
+- `@app` marks the application root that owns the program entry and root view.
 - `rangeViewEmit(path:html:css:javaScript:)` writes the rendered `.html`,
   `.css`, and `.js` files.
 
-The first built-in component is:
+The first built-in composed view is:
 
 ```range
-@component
+@view
 construct Stack {
     state axis: Axis
     state spacing: Float
     state alignment: LayoutAlignment
+
+    derived body: @view {
+        // Composed view content.
+    }
 }
 ```
 
@@ -52,38 +62,38 @@ The intended RangeView surface recovers the useful builder model from the
 earlier Neat web declarations:
 
 ```range
-@component
+@view
 construct Stack {
     state axis: Axis
     state spacing: Float
 }
 
 Stack(axis: .vertical, spacing: 10) {
-    Header().alignment(.top, .center)
-    Text("Range").alignment(.top, .leading)
+    Header().alignment(vertical: .top, horizontal: .center)
+    Text(value: "Range").alignment(vertical: .top, horizontal: .leading)
 }
 .geometry { geometry in
     geometry.shape(.circle)
 }
-.padding(10)
+.padding(value: 10)
 ```
 
-`@component` marks declarations such as `Stack`, `Header`, and `Text`. Their
-values appear inside the builder closure; the macro annotation itself does
-not appear at the call site.
+`@view` marks declarations such as `Stack`, `Header`, and `Text`. Their values
+appear inside the builder closure; the macro annotation itself does not appear
+at the call site.
 
-Every `@component` declaration owns exactly one derived component view:
+Every composed `@view` declaration can own one derived body:
 
 ```range
-derived view: [@component] {
-    // zero or more component values
+derived body: @view {
+    // zero or more drawable values
 }
 ```
 
-The `@component` macro queries the underlying construct and rejects a missing
-view, duplicate view, or a view whose type is not `[@component]`. Primitive
-leaf components still declare an empty view. `@page` retains its separate
-`derived body` contract until the page surface moves to the same model.
+There is no separate component or page category. Composite views expose a
+`body`; primitive views can be lowered directly by their authored rendering
+relationships. Shapes gain the same view identity through `@shape`, while leaf
+values such as `Text(value: "Hello")` carry `@view` directly.
 
 The earlier Neat builder separated expression, block, optional, either, and
 array collection. RangeView should recover those general builder operations
@@ -91,51 +101,89 @@ through the current Range-authored syntax and macro graph rather than
 special-casing `Stack` or reparsing its source.
 
 Placement is a local layout relationship. `alignment`, `position`, and
-`offset` are layout modifiers attached to individual component values; a
-container supplies the available rectangle and resolves those values. The
-result is backend-neutral `LayoutRect` data, not HTML or native drawing calls.
+`offset` are layout modifiers attached to individual view values; a
+container supplies the available viewport and resolves those values. The
+result is backend-neutral `ResolvedViewGeometry`, not HTML or native drawing
+calls.
 
-The trailing closure is the component's direct view construction input. The
-`@component` macro validates that the construct exposes exactly one
-`derived view: [@component]`; the result is compile-time builder syntax and is
-consumed before runtime memory layout.
+The trailing closure is a view's direct construction input. A
+`derived body: @view` is an ordinary derived Range value and is consumed before
+runtime memory layout.
 
-## Routes
+## Application and navigation
 
-`@app` declarations own one derived route tree:
+`@app` declarations own one root view body. Navigation is composed inside that
+body rather than declared as an application-wide route tree:
 
 ```range
 @app
-construct Website {
-    derived routes: Route {
-        Route("/") {
-            Route("home", HomePage())
-        }
+construct RangeViewApp {
+    derived body: @view {
+        NavigationStack(root: {
+            RangeViewHome()
+        })
     }
 }
 ```
 
-The `@app` macro requires exactly one member named `routes`, declared as
-`derived routes: Route`. It rejects a missing routes declaration, a duplicate
-routes declaration, or a routes declaration with the wrong type. Once that
-shape is valid, it emits the program's single top-level `@main` block through
-`#environment`; application entry ownership therefore lives with the app
-declaration rather than with an example file. The root graph stores `main` as
-an optional single value, so two app applications cannot produce two entry
-blocks: main collection rejects the duplicate before LLVM emission.
+The `@app` macro requires exactly one `derived body: @view` and emits the
+program's single top-level `@main` block through `#environment`; application
+entry ownership therefore lives with the app declaration rather than with an
+example file. The root graph stores `main` as an optional single value, so two
+app applications cannot produce two entry blocks: main collection rejects the
+duplicate before LLVM emission.
 
-The emitted main calls `rangeViewRunApplication()`. The native backend owns
-that function and performs `SDL_Init`, creates the window and renderer, enters
-the event loop, and calls `SDL_Quit` during teardown. `rangeViewOpenNativeWindow`
-remains a direct compatibility entry for focused native fixtures.
+`NavigationStack` owns the mutable ordered view path. Its root binding is
+presented when the path is empty; pushing or removing `@view` values changes
+the presented stack. A platform may map URLs, restoration data, or system
+activities into that path, but those are adapters to navigation state rather
+than route declarations owned by `@app`.
+
+The emitted main constructs the application's Window directly:
+
+```range
+@main {
+    Window(
+        title: "RangeViewApp",
+        application: RangeViewApp()
+    )
+}
+```
+
+Window is an ordinary `@view` declaration with a Range `String` title and an
+`@app` binding. It is not an opaque platform handle. Child view, shape, text,
+material, and modifier relationships lower under that Window application, so
+there is no source-level renderer identity or native-C-string wrapper.
+
+Window dimensions and placement are not intrinsic fields. They will arrive
+through the same layout-modifier graph as other views (`frame`, `position`,
+and related operations), after which platform lowering consumes the resolved
+layout. Compiler B must consume the real `@app` expansion and Window graph
+through its ordinary project pipeline; RangeView has no dedicated backend.
+
+The first executable project slice now runs with
+`range run Projects/RangeView`. The accepted compiler builds Compiler
+B, Compiler B discovers the RangeView sources separately, and its ordinary
+project emitter lowers the generated `@main` Process and the Range-authored
+native lifecycle directly to LLVM. `@framework(name:)` relationships select
+Metal and AppKit at link time, and the linked application contains no compiler
+runtime, raw-buffer runtime, C adapter, Rust crate, or GPUI layer. This proves
+the application/Metal boundary; lowering the authored Window and complete view
+tree remains the next rendering slice.
 
 The canonical application example is
-`Examples/RangeViewApp.range`. Its app/page surface is intentionally written
-in RangeView terms:
+`Sources/RangeView/RangeViewApp.range`. Its app/view surface is intentionally
+written in RangeView terms:
 
 ```range
 @app
-construct RangeViewApp { ... }
+construct RangeViewApp {
+    derived body: @view {
+        NavigationStack(root: {
+            RangeViewHome()
+        })
+    }
+}
 
 @shape
 construct Rectangle {
@@ -143,11 +191,12 @@ construct Rectangle {
     let points: Point
 }
 
-@page
+@view
 construct RangeViewHome {
-    derived body: [@component] {
+    derived body: @view {
+        Text(value: "RangeView")
         Stack(.vertical, spacing: 10) {
-            Rectangle().fill(.cyan)
+            Rectangle().fill(color: .cyan)
         }
     }
 }
@@ -158,7 +207,7 @@ adapter is not part of the application source. `fill` contributes a
 `StyleTransform` to the render node; graph lowering resolves it into a
 backend-neutral `PaintSpec` before the native color adapter runs.
 
-`@component` emits one ordered relationship shared by every modifier family:
+`@view` emits one ordered relationship shared by every modifier family:
 
 ```range
 #environment {
@@ -169,58 +218,47 @@ backend-neutral `PaintSpec` before the native color adapter runs.
 }
 ```
 
-`@modifier(.style)`, `@modifier(.layout)`, and future behavior modifiers append
+`@modifier(category: .style)`, `@modifier(.layout)`, and future behavior modifiers append
 typed values to this relationship. They do not add one stored field per
-modifier to every component. The relationship ordinal preserves authored
+modifier to every view. The relationship ordinal preserves authored
 modifier order while each lowering phase selects the categories it consumes.
 
-Routes own paths; `@page` only marks declarations that can occupy a route:
+The stack is an ordinary view whose navigation state belongs to the view
+hierarchy:
 
 ```range
-construct Route {
-    let _ path: String
-    binding _ page: @page?
-    binding _ children: () -> [Route]
+@view
+construct NavigationStack {
+    @many
+    state path: @view
+
+    binding root: () -> @view
+
+    derived body: @view {
+        root()
+    }
 }
 ```
 
-Nested route paths inherit their parent prefix. A route may contain a page,
-children, or both. The final route graph provides forward path matching and
-reverse page-to-path lookup before the selected pages are lowered.
-
-An omitted route-builder binding produces an empty route collection, so the
-declaration does not spell an explicit empty-closure default.
-
-`Route` owns normalization and parent/child path composition. It produces a
-canonical matcher signature for each resolved node. Parameter names do not
-make otherwise identical matchers unique, so `/users/:id` and
-`/users/:name` have the same signature.
-
-The `@app` macro owns whole-tree validation. After resolving every node, it
-rejects:
-
-- two nodes with the same canonical matcher signature; and
-- one `@page` declaration attached to multiple canonical routes.
-
-The second rule keeps reverse page-to-path lookup deterministic. Route aliases
-can be introduced later as an explicit declaration rather than silently
-choosing one repeated page path.
+The current declaration establishes ownership only. Path mutation, destination
+selection, restoration, and backend presentation still require focused graph
+and compiler proofs before they are claimed as executable Range behavior.
 
 Builder output is backend-neutral view and geometry intent. It is not an HTML
 node tree. The current backend lowers that intent into HTML, CSS, and only the
 JavaScript required for observation, interaction, or runtime updates.
 
 Functions marked `@modifier` contribute typed values to the current
-component's ordered modifier relationship:
+view's ordered modifier relationship:
 
 ```range
-@modifier(.style)
-function fill<Paint: @color>(_ color: Paint): StyleTransform
+@modifier(category: .style)
+function fill<Paint: @color>(let color: Paint): StyleTransform
 ```
 
-That makes `.fill(Color.cyan)` available through ordinary member access without
-creating an artificial wrapper component or adding a stored `fill` field to
-every component. `.geometry { ... }` remains the more general geometry
+That makes `.fill(color: Color.cyan)` available through ordinary member access without
+creating an artificial wrapper view or adding a stored `fill` field to every
+view. `.geometry { ... }` remains the more general geometry
 observation and transformation boundary.
 
 ## Drawing model
@@ -229,49 +267,68 @@ observation and transformation boundary.
 Window dimensions come from the drawing space instead of being repeated in a
 native backend call.
 
-`Matrix<Element>` is both the ordered collection and multidimensional layout
-substrate. A list is a one-column matrix; tables, grids, and kanbans retain the
-same model instead of introducing parallel container types or flexbox
-semantics. `ForEachRepresentation<Element, Representation>` maps each element
-and `MatrixPosition` directly into its output representation.
+`Stack` owns an ordered `@many` collection of `@view` children. Nested stacks
+express composition recursively; layout does not need a parallel matrix or
+position representation.
 
-`RectangleRepresentation` is the first area primitive, defined by an origin
-and size. The native checkpoint fills rectangles with horizontal scanlines
-until a direct native rectangle ABI is proven.
+`Rectangle` is the first area primitive. It contributes an ordered point path,
+while `PaintCommand` connects its canonical shape identity to resolved geometry
+and paint without introducing a second nominal representation.
 
-Shapes expose one explicit drawing representation:
+Shapes are their ordered points. `@shape` contributes `@view`, and the ordered
+`@many` value is the path that the Range Compiler lowers directly:
 
 ```range
 @shape
 construct Triangle {
     @many(3)
-    let points: Point
-
-    function draw(): ShapeRepresentation {
-        return ShapeRepresentation(points: points)
-    }
+    let points: Point(
+        Point(x: 0, y: 100),
+        Point(x: 50, y: 0),
+        Point(x: 100, y: 100)
+    )
 }
 ```
 
-The `@shape` macro currently requires exactly one zero-argument `draw`
-function with an explicit return type. Exact return-type identity and general
-relationship-backed member materialization remain compiler work. `@many(3)`
-already expresses Triangle cardinality; the compiler must consume that fact
-without a Triangle-specific lowering.
+The first point starts the path, each successor extends it, and the path closes
+after the final point. There is no `draw()` registration wrapper and no
+Triangle-specific backend rule; the exact `@shape` and `@many` relationships
+select the canonical applications. A Range-authored Metal pipeline must consume
+that ordered path through general Application and foreign-call lowering.
 
 `Color` is ordinary open data, and palettes are ordinary compositions of those
 values:
 
 ```range
 @color
-construct OKLCH {
-    let lightness: Float
-    let chroma: Float
-    let hue: Float
-    let alpha: Float
+construct RGBA {
+    @bounded(minimum: 0, maximum: 255)
+    let red: Int
+
+    @bounded(minimum: 0, maximum: 255)
+    let green: Int
+
+    @bounded(minimum: 0, maximum: 255)
+    let blue: Int
+
+    @bounded(minimum: 0, maximum: 255)
+    let alpha: Int
 }
 
-function toRGBA(color: OKLCH): RGBA
+@color
+construct OKLCH {
+    @bounded(minimum: 0, maximum: 1)
+    let lightness: Float
+
+    @lowerBounded(minimum: 0)
+    let chroma: Float
+
+    @cyclic(origin: 0, period: 360)
+    let hue: Float
+
+    @bounded(minimum: 0, maximum: 1)
+    let alpha: Float
+}
 
 @color
 enum Color {
@@ -287,21 +344,35 @@ extension Color {
 }
 ```
 
+Scalar storage stays scalar. Domain semantics attach to each member as macro
+relationships: RGBA channels are bounded integers, OKLCH lightness and alpha
+are bounded Floats, chroma is non-negative without inventing a false finite
+maximum, and hue is cyclic rather than merely constrained between two numbers.
+There is no `Bounded<Float, ...>` wrapper, generic specialization, or second
+LLVM storage type. Each constraint is an `@member -> Value` transformation and
+reads `#environment.target.Application.value`: bounded forms diagnose rejected
+values and preserve accepted values, while cyclic forms produce the
+Euclidean-modulo normalized value. The Range source now owns that behavior.
+Compiler B still needs to execute implicit final macro expressions before
+these observers are enforced in emitted programs.
+
 The compiler now captures those composed expressions in the ordinary
 `Enum.Case.value` syntax slot, including cases added by extensions. The next
 general enum step is to evaluate the captured value and forward its
-capabilities, at which point `Color.red.toRGBA()` and
-`Color.map { color in ... }` need no synthesized `elements` field, parallel
-`Array`, or separately maintained palette container.
+capabilities, at which point `Color.map { color in ... }` needs no synthesized
+`elements` field, parallel `Array`, or separately maintained palette
+container.
 
 The six anchors and six adjacent-pair derivatives remain ordinary `Color`
-values owned by `Color`. Renderer adapters consume `toRGBA(color: color)`;
-the resulting `RGBA` is a lowering product rather than the authored color
-identity. The intended postfix
-`color.toRGBA()` spelling is ordinary member-call sugar for the same operation;
-reachable aggregate-return member lowering is not compiler-backed yet.
+values owned by `Color`. An `RGBA(...)` or `OKLCH(...)` application is already
+the color representation emitted into the graph. Renderer lowering consumes
+that application and maps its fields to the selected platform format; RangeView
+does not route color semantics through a native `Color.c` implementation or a
+parallel conversion identity. Compiler B must lower the graph-resolved
+`@color` applications directly; no extraction fixture or packed renderer
+placeholder represents this route.
 
-`Examples/HomePage.range` is the source-first reference for the intended app,
-route, component, page, rendering, and command-line shapes. Each capability
-must receive its own compiler fixture and supported proof before RangeView
-adopts it as executable infrastructure.
+`Sources/RangeView/RangeViewApp.range` is the source-first reference for the
+intended app, navigation, view, rendering, and command-line shapes.
+Each capability must receive its own compiler fixture and supported proof
+before RangeView adopts it as executable infrastructure.

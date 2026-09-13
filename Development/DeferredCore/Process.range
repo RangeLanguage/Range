@@ -1,0 +1,62 @@
+@extern
+@builtin
+function commandLineArgumentCount(): Int
+
+@extern
+@builtin
+function commandLineArgument(let index: Int): String
+
+@extern
+function invokeExternStringToInt(let identity: String, let value: String): Int
+
+construct ProcessPlan {
+    let executable: String
+    let arguments: String
+}
+
+construct ProcessBatch {
+    let plans: String
+    let maximumParallelism: Int
+}
+
+function processArgumentRecord(let value: String): String {
+    let valueLength: Int(value.count)
+    return "\(valueLength)\n\(value)"
+}
+
+function processPlan(let executable: String): ProcessPlan {
+    return ProcessPlan(executable: "\(executable)", arguments: String(""))
+}
+
+function processPlanAppendingArgument(let plan: ProcessPlan, let argument: String): ProcessPlan {
+    return ProcessPlan(executable: plan.executable, arguments: "\(plan.arguments)\(processArgumentRecord(value: argument))")
+}
+
+function processPlanRun(let plan: ProcessPlan): Int {
+    return runProcess(executable: plan.executable, argumentRecords: plan.arguments)
+}
+
+function processPlanRecord(let plan: ProcessPlan): String {
+    let encoded: String("\(processArgumentRecord(value: plan.executable))\(plan.arguments)")
+    return processArgumentRecord(value: encoded)
+}
+
+function processBatch(let maximumParallelism: Int): ProcessBatch {
+    return ProcessBatch(plans: String(""), maximumParallelism: maximumParallelism)
+}
+
+function processBatchAppendingPlan(let batch: ProcessBatch, let plan: ProcessPlan): ProcessBatch {
+    return ProcessBatch(plans: "\(batch.plans)\(processPlanRecord(plan: plan))", maximumParallelism: batch.maximumParallelism)
+}
+
+function processBatchRun(let batch: ProcessBatch): Int {
+    return runProcessBatch(planRecords: batch.plans, maximumParallelism: batch.maximumParallelism)
+}
+
+@extern
+@builtin
+function runProcess(let executable: String, let argumentRecords: String): Int
+
+@extern
+@builtin
+function runProcessBatch(let planRecords: String, let maximumParallelism: Int): Int

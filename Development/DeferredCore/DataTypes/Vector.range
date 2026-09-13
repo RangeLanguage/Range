@@ -1,0 +1,7 @@
+construct Vector {
+    let multiplicity: Int
+    let component: @type
+
+    @many(fixedCount: multiplicity)
+    let components: component
+}

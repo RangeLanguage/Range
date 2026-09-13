@@ -1,0 +1,13 @@
+@view
+construct Stack {
+    state axis: Axis
+    state spacing: Float
+    state alignment: LayoutAlignment
+
+    @many
+    let children: @view
+
+    derived body: @view {
+        children
+    }
+}

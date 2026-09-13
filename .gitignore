@@ -5,3 +5,5 @@ __pycache__/
 .build/
 .zed/
 .range/
+Projects/Codex/
+Development/DeferredCompiler/Artifacts/
