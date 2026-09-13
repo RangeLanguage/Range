@@ -18,9 +18,6 @@ const expectedPaths = [
   "/benchmarks/constructs_shared_binding_mutation",
   "/benchmarks/constructs_state_replacement",
   "/posts/intro-to-range",
-  "/features/macros/command-group-registration",
-  "/features/macros/50-declarative-50-imperative",
-  "/features/macros/somewhere-sometime-some-here",
   "/features/macros/codability-under-100",
 ];
 
@@ -58,10 +55,10 @@ function request(path: string) {
 }
 
 describe("search discovery contract", () => {
-  test("publishes exactly eleven canonical indexable pages", () => {
+  test("publishes exactly eight canonical indexable pages", () => {
     expect(indexableSeoPages.map((page) => page.path)).toEqual(expectedPaths);
-    expect(new Set(indexableSeoPages.map((page) => page.title)).size).toBe(11);
-    expect(new Set(indexableSeoPages.map((page) => page.description)).size).toBe(11);
+    expect(new Set(indexableSeoPages.map((page) => page.title)).size).toBe(8);
+    expect(new Set(indexableSeoPages.map((page) => page.description)).size).toBe(8);
     for (const page of indexableSeoPages) {
       expect(page.indexable).toBe(true);
       expect(page.canonicalUrl).toBe(`https://rangelang.org${page.path}`);
@@ -218,7 +215,7 @@ describe("search discovery contract", () => {
       expect(html).not.toContain(post.href);
     }
     const links = [...html.matchAll(/href="((?:\/posts\/|\/features\/)[^"]+)"/g)].map((match) => match[1]);
-    expect(links.length).toBeGreaterThan(0);
+    expect(links).toEqual(["/posts/intro-to-range", "/features/macros/codability-under-100"]);
     for (const link of links) {
       const response = await request(link);
       expect(response.status).toBe(200);

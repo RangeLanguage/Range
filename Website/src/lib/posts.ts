@@ -43,6 +43,7 @@ export const posts: Post[] = [
   },
   {
     slug: "command-group-registration",
+    draft: true,
     href: "/features/macros/command-group-registration",
     category: "Macro breakdown",
     cardTitle: "Registration by declaration",
@@ -59,6 +60,7 @@ export const posts: Post[] = [
   },
   {
     slug: "50-declarative-50-imperative",
+    draft: true,
     href: "/features/macros/50-declarative-50-imperative",
     category: "Language design",
     cardTitle: "50% Declarative, 50% Imperative",
@@ -75,6 +77,7 @@ export const posts: Post[] = [
   },
   {
     slug: "somewhere-sometime-some-here",
+    draft: true,
     href: "/features/macros/somewhere-sometime-some-here",
     category: "Metaprogramming",
     cardTitle: "Somewhere, Sometime",

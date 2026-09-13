@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { dev } from "$app/environment";
   import PostCard from "$lib/components/PostCard.svelte";
   import PostNoiseShader from "$lib/components/PostNoiseShader.svelte";
-  import { postHref, publishedPosts } from "$lib/posts";
+  import { allPosts, postHref, publishedPosts } from "$lib/posts";
 
-  const introPosts = publishedPosts.filter(
+  const introPosts = (dev ? allPosts : publishedPosts).filter(
     (post) => post.slug.startsWith("intro-to-range"),
   );
 </script>
