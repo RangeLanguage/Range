@@ -167,7 +167,7 @@ export const indexableSeoPages: SeoPage[] = [
   ...benchmarkRecords()
     .filter(({ leaf }) => leaf.results.length > 0)
     .map(benchmarkDetailSeo),
-  ...publishedPosts.filter((post) => !post.unlisted).map((post) => postSeo(post, true)),
+  ...publishedPosts.map((post) => postSeo(post, true)),
 ];
 
 const indexableSeoByPath = new Map(
@@ -185,15 +185,21 @@ export function isDraftPath(pathname: string) {
   return allPosts.some((post) => post.draft && post.href === pathname);
 }
 
-export function isSearchPrivatePath(pathname: string) {
+export function isProductionHiddenPath(pathname: string) {
+  pathname = pathname.replace(/\/__data\.json$/, "").replace(/\/+$/, "");
   return (
     isDraftPath(pathname) ||
-    Boolean(postForPath(pathname)?.unlisted) ||
+    pathname === "/__preview" ||
     pathname.startsWith("/__preview/") ||
+    pathname === "/__og-card" ||
     pathname.startsWith("/__og-card/") ||
+    pathname === "/api" ||
     pathname.startsWith("/api/") ||
-    pathname === "/health" ||
     pathname === "/performance" ||
     pathname === "/design-knots"
   );
+}
+
+export function isSearchPrivatePath(pathname: string) {
+  return isProductionHiddenPath(pathname) || pathname === "/health";
 }

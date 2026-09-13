@@ -6,7 +6,6 @@ export const GET: RequestHandler = () =>
     [
       "User-agent: *",
       "Allow: /",
-      "# Unlisted pages send noindex headers; allow crawling so bots can read them.",
       `Sitemap: ${siteOrigin}/sitemap.xml`,
       "",
     ].join("\n"),

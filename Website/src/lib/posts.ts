@@ -10,7 +10,6 @@ export type Post = {
   description: string;
   palette: number;
   draft?: boolean;
-  unlisted?: boolean;
   socialShader?: "fibonacci-sphere" | "sphere-lines";
   cardPalette: {
     foreground: string;
@@ -27,7 +26,6 @@ export function postHref(post: Post) {
 export const posts: Post[] = [
   {
     slug: "intro-to-range",
-    unlisted: true,
     href: "/posts/intro-to-range",
     category: "Introduction",
     cardTitle: "Introduction to Range",

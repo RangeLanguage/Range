@@ -28,15 +28,15 @@ versioned JSON artifact directly.
 
 Editorial copy follows [`STYLEGUIDE.md`](STYLEGUIDE.md).
 
-## Discovery and unlisted articles
+## Discovery and production visibility
 
 `/robots.txt` points crawlers to `/sitemap.xml`. The sitemap and `/llms.txt`
-share the explicit indexable page list in `src/lib/seo.ts`. Draft articles and
-the unlisted introduction remain accessible by direct link, but carry `noindex`
-headers and metadata and are excluded from both discovery files. Drafts stay
-off the production homepage. Preview tools, design knots, and utility routes
-also carry `noindex`. Crawling remains allowed so search engines can read those
-directives; this is discovery control, not access protection.
+share the explicit indexable page list in `src/lib/seo.ts`. The introduction
+is public and included in both files. Draft articles, design knots, preview
+tools, social-card renderers, and performance tools return 404 in production,
+including their preview-query and client-navigation data URLs. They remain
+available during local development, but stay out of live navigation and
+discovery. The server hook enforces this centrally. Health checks remain live.
 
 ## Versioned content
 
