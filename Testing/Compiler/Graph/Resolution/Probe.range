@@ -1,0 +1,14 @@
+macro probe(): Construct {
+    let macroName: #name
+    let targetName: #target.name
+    let selected: #target.members.filter(named: "payload").first
+    let width: #target.generics.filter(named: "width").first.value
+    let ownMembers: #members
+    let original: #members.filter(named: "selected").first
+    let evaluated: #members.filter(named: "selected").first.value.value
+    let missing: #target.members.filter(named: "absent").first
+    let expansions: #environment
+    #environment {
+        @diagnostic("This block must remain deferred")
+    }
+}

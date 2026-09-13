@@ -1,0 +1,9 @@
+Macro {
+    name: integer
+    target: Construct
+    members: {
+        value: #target.members.filter(named: "value").first
+        bits: #target.generics.filter(named: "bits").first
+        signed: #target.generics.filter(named: "signed").first
+    }
+}

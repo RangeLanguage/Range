@@ -104,6 +104,7 @@ Build it with:
 
 ```sh
 Language/Compiler/Tools/build-range-compiler /tmp/range-compiler
+/tmp/range-compiler Language/Core
 ```
 
 The focused compiler checks are:
@@ -115,7 +116,7 @@ Testing/Tools/check-compiler-evaluator
 
 Editor navigation can be checked with `Testing/Tools/check-range-editor-navigation`.
 The build discovers C sources directly from `Language/Compiler/Source`, and the
-Core check discovers every Range source under `Language/Core`.
+compiler discovers every Range source under a supplied directory such as `Language/Core`.
 
 Earlier Core definitions are preserved in `Development/DeferredCore`. Old
 project declarations, compiler tests, runtime support, and benchmark programs

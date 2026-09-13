@@ -1,7 +1,81 @@
+#define _XOPEN_SOURCE 700
+
+/* Owned index storage for the bounded evaluator's value arena. */
+#include <limits.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+typedef struct {
+    int32_t *data;
+    size_t count;
+    size_t capacity;
+} IndexBuffer;
+
+static void *rawBufferCreate(int32_t capacity, int32_t stride)
+{
+    if (capacity < 0 || stride != sizeof(int32_t)
+        || (size_t)capacity > SIZE_MAX / sizeof(int32_t)) return NULL;
+    IndexBuffer *buffer = calloc(1, sizeof(*buffer));
+    if (!buffer) abort();
+    if (capacity) {
+        buffer->data = malloc((size_t)capacity * sizeof(*buffer->data));
+        if (!buffer->data) abort();
+    }
+    buffer->capacity = (size_t)capacity;
+    return buffer;
+}
+
+static int32_t rawBufferAppendInt(void *opaque, int32_t value)
+{
+    IndexBuffer *buffer = opaque;
+    if (!buffer || buffer->count >= INT32_MAX) return -1;
+    if (buffer->count == buffer->capacity) {
+        size_t capacity = buffer->capacity ? buffer->capacity * 2 : 16;
+        if (capacity > INT32_MAX) capacity = INT32_MAX;
+        if (capacity > SIZE_MAX / sizeof(*buffer->data)) return -1;
+        int32_t *data = realloc(buffer->data, capacity * sizeof(*data));
+        if (!data) abort();
+        buffer->data = data;
+        buffer->capacity = capacity;
+    }
+    buffer->data[buffer->count++] = value;
+    return 0;
+}
+
+static int32_t rawBufferCount(void *opaque)
+{
+    IndexBuffer *buffer = opaque;
+    return buffer ? (int32_t)buffer->count : -1;
+}
+
+static int32_t rawBufferLoadInt(void *opaque, int32_t index)
+{
+    IndexBuffer *buffer = opaque;
+    if (!buffer || index < 0 || (size_t)index >= buffer->count) abort();
+    return buffer->data[index];
+}
+
+static int32_t rawBufferStoreInt(void *opaque, int32_t index, int32_t value)
+{
+    IndexBuffer *buffer = opaque;
+    if (!buffer || index < 0 || (size_t)index >= buffer->count) return -1;
+    buffer->data[index] = value;
+    return 0;
+}
+
+static int32_t rawBufferDestroy(void *opaque)
+{
+    IndexBuffer *buffer = opaque;
+    if (!buffer) return -1;
+    free(buffer->data);
+    free(buffer);
+    return 0;
+}
+
 /* Compiler execution kernel. Aggregates have monotonic heap identities;
  * scalars are values. The host buffers store indexes into our value arena, never
  * truncated pointers or truncated Range Ints. */
-#include "evaluator.h"
+#include "model.h"
 #include <inttypes.h>
 #include <limits.h>
 #include <setjmp.h>
@@ -10,12 +84,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern void *rawBufferCreate(int32_t, int32_t);
-extern int32_t rawBufferAppendInt(void *, int32_t);
-extern int32_t rawBufferLoadInt(void *, int32_t);
-extern int32_t rawBufferStoreInt(void *, int32_t, int32_t);
-extern int32_t rawBufferCount(void *);
-extern int32_t rawBufferDestroy(void *);
 
 typedef enum { VVoid, VInt, VBool, VObject, VMany, VEnum, VType } Kind;
 typedef struct Object Object;
@@ -958,7 +1026,7 @@ static void bindFunction(VM *vm,RangeNode *f) {
     bindStatements(vm,&scope,f->a);
     checkInitialization(vm,f);
 }
-int rangeExecute(RangeArena *arena,RangeNode **units,size_t countUnits,const char *entry,int64_t *result,char *error,size_t errorSize) {
+static int rangeExecute(RangeArena *arena,RangeNode **units,size_t countUnits,const char *entry,int64_t *result,char *error,size_t errorSize) {
     VM *vm=calloc(1,sizeof(*vm)); if(!vm) return 0;
     vm->arena=arena; vm->units=units; vm->count=countUnits; vm->error=error; vm->errorSize=errorSize;
     int ok=0;
@@ -974,4 +1042,459 @@ int rangeExecute(RangeArena *arena,RangeNode **units,size_t countUnits,const cha
     }
     for(Object *o=vm->objects;o;o=o->next) if(o->buffer) rawBufferDestroy(o->buffer);
     free(vm->values); free(vm->boundFunctions); free(vm); return ok;
+}
+
+/* Resolve declaration queries without executing the macro's deferred body. */
+static RangeGraphValue graphEval(VM *, RangeMacroApplication *, RangeNode *);
+
+static RangeGraphValue graphNode(RangeNode *node)
+{
+    return (RangeGraphValue){.kind=node ? RangeGraphNode : RangeGraphNone,.node=node};
+}
+
+static RangeGraphValue graphBinding(VM *vm, RangeMacroApplication *app, RangeGraphBinding *binding)
+{
+    if (binding->state == 2) return binding->value;
+    if (binding->state == 1) fail(vm,binding->definition,"cyclic graph member '%s'",binding->definition->name);
+    RangeNode *rhs = rangeNodeRHS(binding->definition);
+    if (!rhs) fail(vm,binding->definition,"graph member RHS is not supported yet");
+    binding->state = 1;
+    binding->value = graphEval(vm,app,rhs);
+    binding->state = 2;
+    return binding->value;
+}
+
+static RangeGraphValue graphProperty(VM *vm, RangeMacroApplication *app,
+                                    RangeGraphValue receiver, const char *name, RangeNode *at)
+{
+    if (receiver.kind == RangeGraphNodes && same(name,"first"))
+        return graphNode(receiver.count ? receiver.nodes[0] : NULL);
+    if (receiver.kind != RangeGraphNode) fail(vm,at,"graph value has no property '%s'",name);
+    RangeNode *node = receiver.node;
+    RangeNode *field = rangeGraphField(node->graphType,name);
+    if (!field) fail(vm,at,"field '%s' is not declared by @type %s",name,
+        node->graphType ? node->graphType->name : rangeNodeKindName(node->kind));
+    if (same(name,"target") && node == app->declaration) return graphNode(app->target);
+    if (same(name,"value") && (node->kind == RangeNodeMember || node->kind == RangeNodeLocal)) {
+        if (node->kind == RangeNodeLocal) {
+            for (size_t i = 0; i < app->count; ++i)
+                if (app->bindings[i].definition == node) return graphBinding(vm,app,&app->bindings[i]);
+        }
+    }
+    RangeGraphValue value = rangeGraphStoredField(vm->arena,node,name);
+    if (!(field->flags & RangeFlagMany) && value.kind == RangeGraphNodes)
+        return graphNode(value.count ? value.nodes[0] : NULL);
+    return value;
+}
+
+static const char *graphText(VM *vm, RangeGraphValue value, RangeNode *at)
+{
+    if (value.kind == RangeGraphText) return value.text;
+    if (value.kind == RangeGraphNode && value.node->kind == RangeNodeString
+        && value.node->itemCount == 1 && (value.node->items[0]->flags & RangeFlagLiteral))
+        return value.node->items[0]->name;
+    fail(vm,at,"graph filter requires a string name");
+    return NULL;
+}
+
+static RangeGraphValue graphEval(VM *vm, RangeMacroApplication *app, RangeNode *node)
+{
+    switch (node->kind) {
+    case RangeNodeEnvironment:
+        return graphProperty(vm,app,graphNode(app->declaration),node->name,node);
+    case RangeNodeMemberAccess:
+        return graphProperty(vm,app,graphEval(vm,app,node->a),node->name,node);
+    case RangeNodeName:
+        for (size_t i = 0; i < app->count; ++i)
+            if (same(app->bindings[i].definition->name,node->name))
+                return graphBinding(vm,app,&app->bindings[i]);
+        fail(vm,node,"unresolved graph member '%s'",node->name);
+        break;
+    case RangeNodeInteger: case RangeNodeBool: case RangeNodeString:
+        return graphNode(node);
+    case RangeNodeCall: {
+        if (!node->a || node->a->kind != RangeNodeMemberAccess || !same(node->a->name,"filter")
+            || node->itemCount != 1 || !same(node->items[0]->name,"named"))
+            fail(vm,node,"graph resolution currently supports filter(named:) calls only");
+        RangeGraphValue list = graphEval(vm,app,node->a->a);
+        if (list.kind != RangeGraphNodes) fail(vm,node,"graph filter requires member nodes");
+        const char *name = graphText(vm,graphEval(vm,app,node->items[0]->a),node);
+        RangeGraphValue result = {.kind=RangeGraphNodes};
+        result.nodes = rangeArenaAllocate(vm->arena,list.count * sizeof(*result.nodes));
+        for (size_t i = 0; i < list.count; ++i)
+            if (same(list.nodes[i]->name,name)) result.nodes[result.count++] = list.nodes[i];
+        return result;
+    }
+    default: fail(vm,node,"unsupported graph expression '%s'",rangeNodeKindName(node->kind));
+    }
+    return (RangeGraphValue){0};
+}
+
+static void resolveGraphTarget(VM *vm, RangeNode *target)
+{
+    if (target->kind != RangeNodeConstruct) return;
+    RangeNode *attributes = target->c;
+    if (attributes) for (size_t a = 0; a < attributes->itemCount; ++a) {
+        RangeNode *attribute = attributes->items[a], *macro = NULL, *unit = NULL;
+        for (size_t u = 0; u < vm->count; ++u) for (size_t m = 0; m < vm->units[u]->itemCount; ++m) {
+            RangeNode *candidate = vm->units[u]->items[m];
+            if (candidate->kind != RangeNodeMacro || !same(candidate->name,attribute->name)) continue;
+            if (macro) fail(vm,attribute,"ambiguous graph macro '%s'",attribute->name);
+            macro = candidate; unit = vm->units[u];
+        }
+        if (!macro) fail(vm,attribute,"unresolved graph macro '%s'",attribute->name);
+        if (macro->b && !same(macro->b->name,"Construct"))
+            fail(vm,attribute,"macro '%s' does not target Construct",macro->name);
+        if (attribute->itemCount || macro->itemCount)
+            fail(vm,attribute,"parameterized macro graph resolution is not implemented");
+        RangeMacroApplication *app = rangeArenaAllocate(vm->arena,sizeof(*app));
+        *app = (RangeMacroApplication){.declaration=macro,.target=target,.unit=unit};
+        if (macro->a) {
+            app->bindings = rangeArenaAllocate(vm->arena,macro->a->itemCount * sizeof(*app->bindings));
+            for (size_t i = 0; i < macro->a->itemCount; ++i) {
+                RangeNode *member = macro->a->items[i];
+                if (member->kind != RangeNodeLocal) continue;
+                for (size_t j = 0; j < app->count; ++j)
+                    if (same(app->bindings[j].definition->name,member->name))
+                        fail(vm,member,"duplicate graph member '%s'",member->name);
+                app->bindings[app->count++] = (RangeGraphBinding){.definition=member};
+            }
+        }
+        attribute->resolvedDeclaration = macro;
+        attribute->macroApplication = app;
+        for (size_t i = 0; i < app->count; ++i)
+            if (rangeNodeHasContextReference(app->bindings[i].definition))
+                (void)graphBinding(vm,app,&app->bindings[i]);
+    }
+    for (size_t i = 0; i < target->itemCount; ++i) resolveGraphTarget(vm,target->items[i]);
+}
+
+static size_t graphValueCount(RangeGraphValue value)
+{
+    return value.kind == RangeGraphNone ? 0 : value.kind == RangeGraphNodes ? value.count : 1;
+}
+
+static void validateGraphShape(VM *vm, RangeNode *node, const char *source)
+{
+    if (!node) return;
+    if (node->kind == RangeNodeUnit) source = node->source;
+    else node->source = source;
+    const char *type = node->kind == RangeNodeMacro ? "Macro"
+        : node->kind == RangeNodeConstruct ? "Construct"
+        : (node->kind == RangeNodeLocal || node->kind == RangeNodeMember) ? "Member" : NULL;
+    if (type) {
+        node->graphType = rangeGraphType(vm->arena,type);
+        if (!node->graphType) fail(vm,node,"missing @type %s",type);
+        /* These are physical storage adapters, not a list of permitted fields. */
+        static const char *const storage[] = {"name","target","members","environment","macros","generics","value"};
+        for (size_t i = 0; i < sizeof(storage)/sizeof(*storage); ++i) {
+            RangeGraphValue value = rangeGraphStoredField(vm->arena,node,storage[i]);
+            if (graphValueCount(value) && !rangeGraphField(node->graphType,storage[i]))
+                fail(vm,node,"field '%s' is not declared by @type %s",storage[i],type);
+        }
+        for (size_t i = 0; i < node->graphType->itemCount; ++i) {
+            RangeNode *field = node->graphType->items[i];
+            RangeGraphValue value = rangeGraphStoredField(vm->arena,node,field->name);
+            size_t count = graphValueCount(value);
+            if (!count && !(field->flags & RangeFlagOptional))
+                fail(vm,node,"@type %s requires field '%s'",type,field->name);
+            if (count > 1 && !(field->flags & RangeFlagMany))
+                fail(vm,node,"@type %s field '%s' allows at most one value",type,field->name);
+            if ((field->flags & RangeFlagMany) && count && value.kind != RangeGraphNodes)
+                fail(vm,node,"@type %s field '%s' requires many-value storage",type,field->name);
+        }
+    }
+    validateGraphShape(vm,node->a,source); validateGraphShape(vm,node->b,source); validateGraphShape(vm,node->c,source);
+    validateGraphShape(vm,node->generics,source); validateGraphShape(vm,node->annotations,source);
+    for (size_t i = 0; i < node->itemCount; ++i) validateGraphShape(vm,node->items[i],source);
+}
+
+static int resolveGraphApplications(RangeArena *arena, RangeNode **units, size_t count,
+                                    char *error, size_t errorSize)
+{
+    VM *vm = calloc(1,sizeof(*vm));
+    if (!vm) { snprintf(error,errorSize,"cannot allocate graph resolver"); return 0; }
+    vm->arena=arena; vm->units=units; vm->count=count; vm->error=error; vm->errorSize=errorSize;
+    int ok = 0;
+    if (setjmp(vm->failure) == 0) {
+        for (size_t u = 0; u < count; ++u) validateGraphShape(vm,units[u],units[u]->source);
+        for (size_t u = 0; u < count; ++u)
+            for (size_t i = 0; i < units[u]->itemCount; ++i) resolveGraphTarget(vm,units[u]->items[i]);
+        ok = 1;
+    }
+    free(vm);
+    return ok;
+}
+
+/* Compiler driver: load source directories, parse their graph, and inspect or run it. */
+#include "parser.h"
+#include "graph.h"
+#include <dirent.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+typedef struct {
+    const char **paths;
+    size_t count;
+    size_t capacity;
+} Sources;
+
+static int sourceError(const char *path)
+{
+    fprintf(stderr, "cannot load %s: %s\n", path, strerror(errno));
+    return 0;
+}
+
+static int collectSources(RangeArena *arena, Sources *sources, const char *path, int nested)
+{
+    struct stat info;
+    if (lstat(path, &info) != 0) return sourceError(path);
+    int link = S_ISLNK(info.st_mode);
+    if (link && stat(path, &info) != 0) return sourceError(path);
+    if (S_ISDIR(info.st_mode)) {
+        /* An explicitly supplied directory may be a symlink; recursive traversal
+         * does not follow directory symlinks, which can lead outside Core or cycle. */
+        if (nested && link) return 1;
+        DIR *directory = opendir(path);
+        if (!directory) return sourceError(path);
+        int ok = 1;
+        for (;;) {
+            errno = 0;
+            struct dirent *entry = readdir(directory);
+            if (!entry) {
+                if (errno) ok = sourceError(path);
+                break;
+            }
+            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+            size_t length = strlen(path) + strlen(entry->d_name) + 2;
+            char *child = malloc(length);
+            if (!child) abort();
+            snprintf(child, length, "%s/%s", path, entry->d_name);
+            ok = collectSources(arena, sources, child, 1);
+            free(child);
+            if (!ok) break;
+        }
+        closedir(directory);
+        return ok;
+    }
+    if (!S_ISREG(info.st_mode)) {
+        if (nested) return 1;
+        fprintf(stderr, "cannot load %s: expected a regular file or directory\n", path);
+        return 0;
+    }
+    size_t length = strlen(path);
+    if (nested && (length < 6 || strcmp(path + length - 6, ".range"))) return 1;
+    char *resolved = realpath(path, NULL);
+    if (!resolved) return sourceError(path);
+    if (sources->count == sources->capacity) {
+        size_t capacity = sources->capacity ? sources->capacity * 2 : 16;
+        const char **paths = realloc(sources->paths, capacity * sizeof(*paths));
+        if (!paths) abort();
+        sources->paths = paths;
+        sources->capacity = capacity;
+    }
+    sources->paths[sources->count++] = rangeArenaIntern(arena, resolved, strlen(resolved));
+    free(resolved);
+    return 1;
+}
+
+static int comparePaths(const void *left, const void *right)
+{
+    return strcmp(*(const char *const *)left, *(const char *const *)right);
+}
+
+static char *readFile(const char *path, size_t *size)
+{
+    FILE *stream = fopen(path, "rb");
+    if (!stream) return NULL;
+    if (fseek(stream, 0, SEEK_END) != 0) { fclose(stream); return NULL; }
+    long length = ftell(stream);
+    if (length < 0 || fseek(stream, 0, SEEK_SET) != 0) { fclose(stream); return NULL; }
+    char *buffer = malloc((size_t)length + 1);
+    if (!buffer) { fclose(stream); return NULL; }
+    if (fread(buffer, 1, (size_t)length, stream) != (size_t)length) {
+        fclose(stream); free(buffer); return NULL;
+    }
+    fclose(stream);
+    buffer[length] = '\0';
+    *size = (size_t)length;
+    return buffer;
+}
+
+
+/* Flat per-source dumps; reject duplicate names before writing any files. */
+static const char *sourceName(const char *path)
+{
+    const char *slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+static int loadGraphTypes(RangeArena *arena, const char *directory)
+{
+    Sources sources = {0};
+    int ok = 0;
+    if (!collectSources(arena,&sources,directory,0)) goto cleanup;
+    if (!sources.count) { fprintf(stderr,"no @type sources found in %s\n",directory); goto cleanup; }
+    qsort(sources.paths,sources.count,sizeof(*sources.paths),comparePaths);
+    arena->graphTypes = rangeNodeCreate(arena,RangeNodeUnit,directory,1,1);
+    for (size_t i = 0; i < sources.count; ++i) {
+        size_t size = 0;
+        char *source = readFile(sources.paths[i],&size);
+        if (!source) { sourceError(sources.paths[i]); goto cleanup; }
+        char error[512];
+        RangeNode *type = rangeParseGraphType(arena,sources.paths[i],source,size,error,sizeof(error));
+        free(source);
+        if (!type) { fprintf(stderr,"%s\n",error); goto cleanup; }
+        if (rangeGraphType(arena,type->name)) {
+            fprintf(stderr,"%s:1:1: duplicate @type '%s'\n",type->path,type->name); goto cleanup;
+        }
+        rangeNodeAppend(arena,arena->graphTypes,type);
+    }
+    ok = 1;
+cleanup:
+    free(sources.paths);
+    return ok;
+}
+
+static int emitGraphs(RangeArena *arena, RangeNode **units, size_t count,
+                      const char *directory)
+{
+    if (!*directory) { fprintf(stderr, "graph output directory is empty\n"); return 0; }
+    for (size_t i = 0; i < count; ++i) {
+        const char *name = sourceName(units[i]->path);
+        const char *extension = strrchr(name, '.');
+        size_t stem = extension ? (size_t)(extension - name) : strlen(name);
+        for (size_t t = 0; t < arena->graphTypes->itemCount; ++t) {
+            const char *type = arena->graphTypes->items[t]->name;
+            if (strlen(type) == stem && !strncmp(name,type,stem)) {
+                fprintf(stderr, "graph output name reserved for type definition: %s\n", name);
+                return 0;
+            }
+        }
+        for (size_t j = 0; j < i; ++j) {
+            if (!strcmp(sourceName(units[i]->path), sourceName(units[j]->path))) {
+                fprintf(stderr, "duplicate graph output name: %s\n", sourceName(units[i]->path));
+                return 0;
+            }
+        }
+    }
+    char *folder = (char *)rangeArenaIntern(arena, directory, strlen(directory));
+    for (char *p = folder + 1; ; ++p) {
+        if (*p && *p != '/') continue;
+        char saved = *p;
+        *p = '\0';
+        if (mkdir(folder, 0755) != 0 && errno != EEXIST) return sourceError(folder);
+        *p = saved;
+        if (!saved) break;
+    }
+    for (size_t i = 0; i < count + arena->graphTypes->itemCount; ++i) {
+        const char *name = i < count ? sourceName(units[i]->path)
+            : arena->graphTypes->items[i - count]->name;
+        const char *extension = strrchr(name, '.');
+        size_t stem = extension ? (size_t)(extension - name) : strlen(name);
+        size_t length = strlen(directory) + stem + 6;
+        char *path = rangeArenaAllocate(arena, length);
+        snprintf(path, length, "%s/%.*s.txt", directory, (int)stem, name);
+        FILE *output = fopen(path, "w");
+        if (!output) return sourceError(path);
+        if (i < count) rangeGraphWrite(output, units[i]);
+        else rangeGraphWriteDefinition(output, arena->graphTypes->items[i - count]);
+        int failed = ferror(output);
+        if (fclose(output) != 0) failed = 1;
+        if (failed) return sourceError(path);
+        printf("graph=%s\n", path);
+    }
+    return 1;
+}
+
+#ifndef RANGE_GRAPH_TYPES_DIR
+#define RANGE_GRAPH_TYPES_DIR "Language/Compiler/Types"
+#endif
+
+int main(int argc, char **argv)
+{
+    RangeArena arena;
+    rangeArenaInit(&arena);
+    int treeMode = 0;
+    const char *entry = NULL;
+    const char *graphDirectory = NULL;
+    const char *typesDirectory = RANGE_GRAPH_TYPES_DIR;
+    int first = 1;
+    if (argc > 2 && strcmp(argv[1],"--graph-types") == 0) { typesDirectory=argv[2]; first=3; }
+    int option = first;
+    if (argc > option && strcmp(argv[option], "--tree") == 0) { treeMode = 1; first = option + 1; }
+    else if (argc > option + 1 && strcmp(argv[option], "--run") == 0) { entry = argv[option + 1]; first = option + 2; }
+    else if (argc > option + 1 && strcmp(argv[option], "--emit-graph") == 0) { graphDirectory = argv[option + 1]; first = option + 2; }
+    if (first >= argc) { fprintf(stderr, "usage: compiler [--graph-types directory] [--tree | --emit-graph directory | --run function] files-or-directories...\n"); return 64; }
+    Sources sources = {0};
+    RangeNode **units = NULL;
+    int status = 66;
+    for (int index = first; index < argc; ++index) {
+        if (!collectSources(&arena, &sources, argv[index], 0)) goto cleanup;
+    }
+    if (!sources.count) { fprintf(stderr, "no Range sources found\n"); goto cleanup; }
+    qsort(sources.paths, sources.count, sizeof(*sources.paths), comparePaths);
+    size_t unique = 0;
+    for (size_t index = 0; index < sources.count; ++index) {
+        if (!unique || strcmp(sources.paths[index], sources.paths[unique - 1]))
+            sources.paths[unique++] = sources.paths[index];
+    }
+    sources.count = unique;
+    units = calloc(sources.count, sizeof(*units));
+    if (!units) { status = 70; goto cleanup; }
+    size_t unitCount = 0;
+    long counts[RangeNodeKindCount];
+    memset(counts, 0, sizeof(counts));
+    int failures = 0;
+    for (size_t index = 0; index < sources.count; ++index) {
+        const char *path = sources.paths[index];
+        size_t size = 0;
+        char *source = readFile(path, &size);
+        if (!source) { fprintf(stderr, "cannot read %s\n", path); goto cleanup; }
+        char error[512];
+        RangeNode *unit = rangeParseUnit(&arena, path, source, size,
+                                         error, sizeof(error));
+        free(source);
+        if (!unit) { fprintf(stderr, "%s\n", error); failures += 1; continue; }
+        units[unitCount++] = unit;
+        if (treeMode) { rangeGraphWriteTree(stdout, unit, 0); continue; }
+        for (size_t item = 0; item < unit->itemCount; ++item) {
+            counts[unit->items[item]->kind] += 1;
+        }
+    }
+    if (graphDirectory && !failures) {
+        if (!loadGraphTypes(&arena,typesDirectory)) { status=65; goto cleanup; }
+        char error[512];
+        if (!resolveGraphApplications(&arena, units, unitCount, error, sizeof(error))) {
+            fprintf(stderr,"%s\n",error);
+            failures += 1;
+        }
+    }
+    if (graphDirectory && !failures && !emitGraphs(&arena, units, unitCount, graphDirectory)) {
+        status = 74;
+        goto cleanup;
+    }
+    if (entry && !failures) {
+        int64_t result = 0;
+        char error[512];
+        if (!rangeExecute(&arena, units, unitCount, entry, &result, error, sizeof(error))) {
+            fprintf(stderr, "%s\n", error);
+            failures += 1;
+        } else printf("result=%" PRId64 "\n", result);
+    }
+    status = failures ? 65 : 0;
+    if (entry || treeMode || graphDirectory) goto cleanup;
+    printf("sources=%zu nodes=%zu construct=%ld enum=%ld function=%ld macro=%ld main=%ld failures=%d\n",
+           sources.count, arena.nodeCount, counts[RangeNodeConstruct], counts[RangeNodeEnum],
+           counts[RangeNodeFunction], counts[RangeNodeMacro], counts[RangeNodeMain],
+           failures);
+cleanup:
+    free(units);
+    free(sources.paths);
+    rangeArenaDestroy(&arena);
+    return status;
 }

@@ -1,0 +1,5 @@
+macro bonus(): Construct {
+    let extra: #bonus
+}
+@bonus
+construct Example {}

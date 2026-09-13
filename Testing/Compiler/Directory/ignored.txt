@@ -1,0 +1,1 @@
+This is deliberately not valid Range source. Directory loading must ignore it.

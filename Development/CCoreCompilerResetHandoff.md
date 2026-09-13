@@ -13,6 +13,32 @@ of the active architecture.
 Work is deliberately focused on integer representation. Collection storage must
 not be resumed until the scalar representation path is coherent.
 
+## Design conclusion — 2026-09-13
+
+**Not everything is a macro. Everything in Core is abstract.**
+
+Core describes constructs, members, values, relationships, and behavior. Macros
+are one part of that description: they inspect and operate on the graph. A
+construct does not have to become a macro to participate in the same model.
+
+Here, abstract means that Core describes meaning independently of a particular
+machine representation. It does not mean that values cannot become concrete,
+that constructs cannot have instances, or that all behavior runs at compile
+time. The C compiler resolves and evaluates the graph and will lower the
+required behavior and storage to target bytes.
+
+The graph is the shared representation. Its `@type` templates define available
+fields and multiplicity; Core supplies the semantic rules. A member retains its
+defining expression, while each macro application has its own resolution
+context. Resolving a member does not replace its definition.
+
+This closes the question of whether everything must be a macro. The remaining
+work is implementing Core behavior through the graph. Field resolution and
+graph-shape checks are implemented; full macro validation, expansion execution,
+instance specialization, and target-byte emission remain unfinished.
+
+The reset history below records the earlier checkpoint and handoff state.
+
 ## Checkpoint
 
 The complete pre-reset workspace was committed before destructive restructuring:
@@ -45,7 +71,7 @@ The main changes are:
   `Language/Compiler`.
 - Renamed recovery tests and tools to compiler tests and tools.
 - Removed the source manifest. Core consists of every `.range` file recursively
-  under `Language/Core`, discovered directly by the parser check.
+  under `Language/Core`, discovered directly by the C compiler's directory loader.
 - Moved the other 64 Core sources and their meaning documents to
   `Development/DeferredCore`. Active Core contains only `DataTypes/Int.range`
   and `Macros/Integer.range`, alongside repository guidance.
@@ -89,13 +115,14 @@ Testing/Tools/check-compiler-evaluator
 It currently passes with:
 
 ```text
-compiler parser: nodes=203 construct=1 enum=0 function=1 macro=1 main=0 failures=0 int-structure=pass malformed=pass
+compiler parser: sources=2 nodes=203 construct=1 enum=0 function=1 macro=1 main=0 failures=0 int-structure=pass malformed=pass directory=pass
 compiler evaluator: ordinary passes=6 rejections=48
 compiler evaluator: sanitized passes=6 rejections=48
 ```
 
-Both staged and unstaged `git diff --check` pass. The parser check discovers all
-Core Range files directly from the directory.
+Both staged and unstaged `git diff --check` pass. The parser check passes the Core
+directory directly to the compiler. Directory inputs are recursive, sorted, and
+deduplicated before all sources are parsed into the existing syntax graph.
 The evaluator fixtures explicitly load deferred Byte, Bool, and String
 declarations; their passing results do not prove execution of `@integer`.
 

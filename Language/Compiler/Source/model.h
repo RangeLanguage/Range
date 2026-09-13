@@ -1,9 +1,9 @@
-/* Syntax graph storage for the Range compiler.
+/* Shared graph model for the Range compiler.
  *
  * One node shape with named structural slots. Every node carries its source
  * location so unsupported forms can fail loudly with a real position. */
-#ifndef RANGE_COMPILER_AST_H
-#define RANGE_COMPILER_AST_H
+#ifndef RANGE_COMPILER_MODEL_H
+#define RANGE_COMPILER_MODEL_H
 
 #include <stddef.h>
 
@@ -44,6 +44,7 @@ typedef enum {
     RangeNodeSwitch,
     RangeNodeSwitchCase,
     RangeNodeExtension,
+    RangeNodeType,
     RangeNodeKindCount
 } RangeNodeKind;
 
@@ -60,10 +61,35 @@ enum {
 };
 
 typedef struct RangeNode RangeNode;
+typedef struct RangeMacroApplication RangeMacroApplication;
+
+typedef enum { RangeGraphNone, RangeGraphNode, RangeGraphNodes, RangeGraphText } RangeGraphValueKind;
+typedef struct {
+    RangeGraphValueKind kind;
+    RangeNode *node;
+    RangeNode **nodes;
+    size_t count;
+    const char *text;
+} RangeGraphValue;
+
+typedef struct {
+    RangeNode *definition;
+    RangeGraphValue value;
+    int state; /* 0 deferred, 1 resolving, 2 resolved */
+} RangeGraphBinding;
+
+struct RangeMacroApplication {
+    RangeNode *declaration;
+    RangeNode *target;
+    RangeNode *unit;
+    RangeGraphBinding *bindings;
+    size_t count;
+};
 
 struct RangeNode {
     RangeNodeKind kind;
     const char *path;
+    const char *source;    /* unit owns the text; inspected children borrow it */
     int line;
     int column;
     const char *name;      /* interned, NUL terminated */
@@ -78,6 +104,8 @@ struct RangeNode {
     /* Executor binding result; declaration identity, never a name-only dispatch. */
     RangeNode *resolvedDeclaration;
     RangeNode *resolvedType; /* inferred member value type after binding */
+    RangeMacroApplication *macroApplication; /* application-specific bindings */
+    RangeNode *graphType; /* authoritative @type template, when applicable */
     RangeNode *annotations;
     RangeNode *generics; /* declaration Let members or supplied type arguments */
     RangeNode *rhsReference; /* bare RHS identity, resolved like any name */
@@ -94,6 +122,7 @@ typedef struct RangeArenaBlock RangeArenaBlock;
 typedef struct {
     RangeArenaBlock *head;
     size_t nodeCount;
+    RangeNode *graphTypes;
 } RangeArena;
 
 void rangeArenaInit(RangeArena *arena);
@@ -104,5 +133,10 @@ RangeNode *rangeNodeCreate(RangeArena *arena, RangeNodeKind kind,
                            const char *path, int line, int column);
 void rangeNodeAppend(RangeArena *arena, RangeNode *node, RangeNode *item);
 const char *rangeNodeKindName(RangeNodeKind kind);
+int rangeNodeHasContextReference(const RangeNode *node);
+RangeNode *rangeGraphType(const RangeArena *arena, const char *name);
+RangeNode *rangeGraphField(const RangeNode *type, const char *name);
+RangeNode *rangeNodeRHS(RangeNode *node);
+RangeGraphValue rangeGraphStoredField(RangeArena *arena, RangeNode *node, const char *name);
 
 #endif

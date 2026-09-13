@@ -1,0 +1,9 @@
+@type {
+    name: Macro
+    fields: {
+        name
+        target?
+        members?
+        @many environment?
+    }
+}

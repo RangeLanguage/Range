@@ -1,0 +1,7 @@
+construct Int {
+    let value: 0
+}
+
+function answer(): Int {
+    return 42
+}

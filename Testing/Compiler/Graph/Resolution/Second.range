@@ -1,0 +1,4 @@
+@probe
+construct Second<let width: 16> {
+    let payload: 22
+}

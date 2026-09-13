@@ -2,7 +2,7 @@
 #ifndef RANGE_COMPILER_PARSER_H
 #define RANGE_COMPILER_PARSER_H
 
-#include "ast.h"
+#include "model.h"
 #include "lexer.h"
 
 typedef struct {
@@ -24,5 +24,8 @@ typedef struct {
 RangeNode *rangeParseUnit(RangeArena *arena, const char *path,
                           const char *source, size_t length,
                           char *error, size_t errorSize);
+RangeNode *rangeParseGraphType(RangeArena *arena, const char *path,
+                              const char *source, size_t length,
+                              char *error, size_t errorSize);
 
 #endif
