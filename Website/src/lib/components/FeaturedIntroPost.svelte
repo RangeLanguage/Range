@@ -1,19 +1,10 @@
 <script lang="ts">
-  import { dev } from "$app/environment";
   import PostCard from "$lib/components/PostCard.svelte";
   import PostNoiseShader from "$lib/components/PostNoiseShader.svelte";
-  import { postHref, posts } from "$lib/posts";
+  import { postHref, publishedPosts } from "$lib/posts";
 
-  const publishedIntro = posts.find(
-    (post) => post.slug === "intro-to-range" && !post.draft,
-  );
-  const futureIntros = dev
-    ? ["intro-to-range-2", "intro-to-range-3", "intro-to-range-4"]
-      .map((slug) => posts.find((post) => post.slug === slug && post.draft))
-      .filter((post) => post !== undefined)
-    : [];
-  const introPosts = [publishedIntro, ...futureIntros].filter(
-    (post) => post !== undefined,
+  const introPosts = publishedPosts.filter(
+    (post) => post.slug.startsWith("intro-to-range"),
   );
 </script>
 

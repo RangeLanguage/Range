@@ -1,15 +1,12 @@
 <script lang="ts">
-  import { dev } from "$app/environment";
   import { onMount } from "svelte";
   import PostCard from "$lib/components/PostCard.svelte";
   import PostNoiseShader from "$lib/components/PostNoiseShader.svelte";
-  import { allPosts, postHref, publishedPosts } from "$lib/posts";
+  import { postHref, publishedPosts } from "$lib/posts";
 
-  const withoutIntroSeries = (post: (typeof allPosts)[number]) =>
-    !post.slug.startsWith("intro-to-range");
-  const visiblePosts = dev
-    ? allPosts.filter(withoutIntroSeries)
-    : publishedPosts.filter(withoutIntroSeries);
+  const visiblePosts = publishedPosts.filter(
+    (post) => !post.slug.startsWith("intro-to-range"),
+  );
 
   let hoveredPost = $state<number | null>(null);
   let focusedPost = $state<number | null>(null);

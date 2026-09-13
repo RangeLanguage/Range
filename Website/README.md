@@ -35,8 +35,9 @@ share the explicit indexable page list in `src/lib/seo.ts`. The introduction
 is public and included in both files. Draft articles, design knots, preview
 tools, social-card renderers, and performance tools return 404 in production,
 including their preview-query and client-navigation data URLs. They remain
-available during local development, but stay out of live navigation and
-discovery. The server hook enforces this centrally. Health checks remain live.
+available by direct URL during local development, but stay out of navigation
+in both development and production, and out of discovery. The server hook
+enforces production access centrally. Health checks remain live.
 
 ## Versioned content
 
