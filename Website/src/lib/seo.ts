@@ -167,7 +167,7 @@ export const indexableSeoPages: SeoPage[] = [
   ...benchmarkRecords()
     .filter(({ leaf }) => leaf.results.length > 0)
     .map(benchmarkDetailSeo),
-  ...publishedPosts.map((post) => postSeo(post, true)),
+  ...publishedPosts.filter((post) => !post.unlisted).map((post) => postSeo(post, true)),
 ];
 
 const indexableSeoByPath = new Map(
@@ -188,6 +188,7 @@ export function isDraftPath(pathname: string) {
 export function isSearchPrivatePath(pathname: string) {
   return (
     isDraftPath(pathname) ||
+    Boolean(postForPath(pathname)?.unlisted) ||
     pathname.startsWith("/__preview/") ||
     pathname.startsWith("/__og-card/") ||
     pathname.startsWith("/api/") ||

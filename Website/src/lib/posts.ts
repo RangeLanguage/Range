@@ -10,6 +10,7 @@ export type Post = {
   description: string;
   palette: number;
   draft?: boolean;
+  unlisted?: boolean;
   socialShader?: "fibonacci-sphere" | "sphere-lines";
   cardPalette: {
     foreground: string;
@@ -20,12 +21,13 @@ export type Post = {
 };
 
 export function postHref(post: Post) {
-  return post.draft ? `${post.href}?preview=range-draft` : post.href;
+  return post.href;
 }
 
 export const posts: Post[] = [
   {
     slug: "intro-to-range",
+    unlisted: true,
     href: "/posts/intro-to-range",
     category: "Introduction",
     cardTitle: "Introduction to Range",

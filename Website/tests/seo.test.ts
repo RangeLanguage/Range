@@ -17,7 +17,6 @@ const expectedPaths = [
   "/benchmarks/constructs_deep_identity",
   "/benchmarks/constructs_shared_binding_mutation",
   "/benchmarks/constructs_state_replacement",
-  "/posts/intro-to-range",
   "/features/macros/command-group-registration",
   "/features/macros/50-declarative-50-imperative",
   "/features/macros/somewhere-sometime-some-here",
@@ -58,10 +57,10 @@ function request(path: string) {
 }
 
 describe("search discovery contract", () => {
-  test("publishes exactly eleven canonical indexable pages", () => {
+  test("publishes exactly ten canonical indexable pages", () => {
     expect(indexableSeoPages.map((page) => page.path)).toEqual(expectedPaths);
-    expect(new Set(indexableSeoPages.map((page) => page.title)).size).toBe(11);
-    expect(new Set(indexableSeoPages.map((page) => page.description)).size).toBe(11);
+    expect(new Set(indexableSeoPages.map((page) => page.title)).size).toBe(10);
+    expect(new Set(indexableSeoPages.map((page) => page.description)).size).toBe(10);
     for (const page of indexableSeoPages) {
       expect(page.indexable).toBe(true);
       expect(page.canonicalUrl).toBe(`https://rangelang.org${page.path}`);
@@ -137,7 +136,9 @@ describe("search discovery contract", () => {
     expect(articleHtml).toContain(
       "<title>Introduction to Range — Range Programming Language</title>",
     );
-    expect(articleHtml).toContain('"@type":"BlogPosting"');
+    expect(articleResponse.status).toBe(200);
+    expect(articleResponse.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(articleHtml).not.toContain('"@type":"BlogPosting"');
   });
 
   test("serves a discoverable robots file and an exact XML sitemap", async () => {
@@ -156,7 +157,7 @@ describe("search discovery contract", () => {
     expect(robotsResponse.status).toBe(200);
     expect(robotsResponse.headers.get("content-type")).toContain("text/plain");
     expect(robots).toBe(
-      "User-agent: *\nAllow: /\nSitemap: https://rangelang.org/sitemap.xml\n",
+      "User-agent: *\nAllow: /\n# Unlisted pages send noindex headers; allow crawling so bots can read them.\nSitemap: https://rangelang.org/sitemap.xml\n",
     );
     expect(sitemapResponse.status).toBe(200);
     expect(sitemapResponse.headers.get("content-type")).toContain(
@@ -169,15 +170,49 @@ describe("search discovery contract", () => {
     expect(sitemap).not.toContain("?preview=");
   });
 
-  test("returns real noindex errors for every draft and unknown route", async () => {
+  test("keeps draft links accessible without indexing them", async () => {
     const draftPaths = allPosts
       .filter((post) => post.draft)
       .map((post) => post.href);
-    for (const path of [...draftPaths, "/this-route-does-not-exist"]) {
+    for (const path of draftPaths.flatMap((path) => [path, `${path}?preview=range-draft`])) {
       const response = await request(path);
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
       expect(response.headers.get("location")).toBeNull();
       expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+      const html = await response.text();
+      expect(html).toContain('name="robots" content="noindex, nofollow"');
+      expect(html).not.toContain('rel="canonical"');
+    }
+  });
+
+  test("returns a real noindex error for an unknown route", async () => {
+    const response = await request("/this-route-does-not-exist");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+  });
+
+  test("llms.txt lists exactly the same website pages as the sitemap", async () => {
+    const response = await request("/llms.txt");
+    const body = await response.text();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/plain");
+    const links = [...body.matchAll(/\]\((https:\/\/rangelang\.org[^)]*)\)/g)].map((match) => match[1]);
+    expect(links).toEqual(expectedPaths.map((path) => `https://rangelang.org${path}`));
+    for (const post of allPosts.filter((post) => post.draft || post.unlisted)) {
+      expect(body).not.toContain(post.href);
+    }
+  });
+
+  test("every article link on the homepage opens its own page", async () => {
+    const html = await (await request("/")).text();
+    const links = [...html.matchAll(/href="((?:\/posts\/|\/features\/)[^"]+)"/g)].map((match) => match[1]);
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      const response = await request(link);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(await response.text()).toContain("<article");
     }
   });
 

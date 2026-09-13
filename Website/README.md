@@ -28,6 +28,16 @@ versioned JSON artifact directly.
 
 Editorial copy follows [`STYLEGUIDE.md`](STYLEGUIDE.md).
 
+## Discovery and unlisted articles
+
+`/robots.txt` points crawlers to `/sitemap.xml`. The sitemap and `/llms.txt`
+share the explicit indexable page list in `src/lib/seo.ts`. Draft articles and
+the unlisted introduction remain accessible by direct link, but carry `noindex`
+headers and metadata and are excluded from both discovery files. Drafts stay
+off the production homepage. Preview tools, design knots, and utility routes
+also carry `noindex`. Crawling remains allowed so search engines can read those
+directives; this is discovery control, not access protection.
+
 ## Versioned content
 
 `public/benchmarks.json` is the Website-owned benchmark artifact used by the
